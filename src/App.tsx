@@ -1,6 +1,23 @@
+import React from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
-import AdminLayout from './components/AdminLayout';
-import Dashboard from './pages/Dashboard';
+
+// 1. Layout
+import AdminLayout from './components/AdminLayout'; 
+
+// --- A. CÁC TRANG ADMIN MỚI (SYSTEM) ---
+import Dashboard from './pages/admin/Dashboard'; 
+import UserManagement from './pages/admin/UserManagement'; 
+import ReaderManagement from './pages/admin/ReaderManagement';
+import SessionMonitoring from './pages/admin/SessionMonitoring';
+import ServicePackageManagement from './pages/admin/ServicePackageManagement';
+import RevenueReport from './pages/admin/RevenueReport';
+import ContentManagement from './pages/admin/ContentManagement';
+import NotificationCenter from './pages/admin/NotificationCenter'; 
+import SystemSettings from './pages/admin/SystemSettings'; // Trang Admin Accounts
+import SystemConfig from './pages/admin/SystemConfig';     // Trang Time-out/Topic/Tarot
+
+// --- B. CÁC TRANG CŨ (SHOP/TAROT) ---
+// *Đảm bảo đường dẫn import đúng với cấu trúc folder của bạn*
 import TarotList from './pages/tarot/TarotList';
 import TarotForm from './pages/tarot/TarotForm';
 import ProductList from './pages/products/ProductList';
@@ -12,17 +29,40 @@ function App() {
   return (
     <BrowserRouter>
       <Routes>
+        {/* Redirect trang chủ về Dashboard */}
+        <Route path="/" element={<Navigate to="/admin/dashboard" replace />} />
+
+        {/* ADMIN ROUTES */}
         <Route path="/admin" element={<AdminLayout />}>
-          <Route index element={<Dashboard />} />
+          <Route index element={<Navigate to="dashboard" replace />} /> 
+          
+          {/* 1. Module Hệ Thống (Mới) */}
+          <Route path="dashboard" element={<Dashboard />} />
+          <Route path="users" element={<UserManagement />} />
+          <Route path="readers" element={<ReaderManagement />} />
+          <Route path="sessions" element={<SessionMonitoring />} />
+          <Route path="packages" element={<ServicePackageManagement />} />
+          <Route path="revenue" element={<RevenueReport />} />
+          <Route path="content" element={<ContentManagement />} />
+          <Route path="notifications" element={<NotificationCenter />} />
+          <Route path="settings" element={<SystemSettings />} />
+          <Route path="config" element={<SystemConfig />} />
+
+          {/* 2. Module Cửa Hàng (Cũ) */}
           <Route path="tarot" element={<TarotList />} />
           <Route path="tarot/new" element={<TarotForm />} />
           <Route path="tarot/edit/:id" element={<TarotForm />} />
+          
           <Route path="products" element={<ProductList />} />
           <Route path="products/new" element={<ProductForm />} />
+          
           <Route path="orders" element={<OrderList />} />
           <Route path="orders/new" element={<OrderForm />} />
+          
         </Route>
-        <Route path="/" element={<Navigate to="/admin" replace />} />
+        
+        {/* Route 404 */}
+        <Route path="*" element={<div className="p-10 text-center">404 - Trang không tồn tại</div>} />
       </Routes>
     </BrowserRouter>
   );

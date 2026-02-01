@@ -89,11 +89,14 @@ export default function UserManagement() {
   const [users, setUsers] = useState<User[]>(MOCK_USERS);
   
   // -- Filter States --
-  const [keyword, setKeyword] = useState(''); // Tìm chung cho ID và Tên
+  const [keyword, setKeyword] = useState(''); 
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
   const [sessionFrom, setSessionFrom] = useState('');
   const [sessionTo, setSessionTo] = useState('');
+  // --- MỚI: Thêm state cho bộ lọc Gói và Trạng thái ---
+  const [filterPackage, setFilterPackage] = useState('All');
+  const [filterStatus, setFilterStatus] = useState('All');
 
   // -- Selection & Modals --
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -103,7 +106,7 @@ export default function UserManagement() {
   // --- LOGIC FILTER ---
   const filteredUsers = useMemo(() => {
     return users.filter(u => {
-      // 1. Keyword (Name or ID)
+      // 1. Keyword
       const kw = keyword.toLowerCase();
       const matchKeyword = u.fullName.toLowerCase().includes(kw) || u.id.toLowerCase().includes(kw);
 
@@ -112,13 +115,19 @@ export default function UserManagement() {
       const matchDateFrom = dateFrom ? userDate >= new Date(dateFrom).getTime() : true;
       const matchDateTo = dateTo ? userDate <= new Date(dateTo).getTime() : true;
 
-      // 3. Session Count Range
+      // 3. Session Count
       const matchSessFrom = sessionFrom ? u.completedSessionsCount >= Number(sessionFrom) : true;
       const matchSessTo = sessionTo ? u.completedSessionsCount <= Number(sessionTo) : true;
 
-      return matchKeyword && matchDateFrom && matchDateTo && matchSessFrom && matchSessTo;
+      // 4. Package (Mới)
+      const matchPackage = filterPackage === 'All' ? true : u.subscriptionPackage === filterPackage;
+
+      // 5. Status (Mới)
+      const matchStatus = filterStatus === 'All' ? true : u.status === filterStatus;
+
+      return matchKeyword && matchDateFrom && matchDateTo && matchSessFrom && matchSessTo && matchPackage && matchStatus;
     });
-  }, [users, keyword, dateFrom, dateTo, sessionFrom, sessionTo]);
+  }, [users, keyword, dateFrom, dateTo, sessionFrom, sessionTo, filterPackage, filterStatus]);
 
   // --- HANDLERS ---
   const handleCheckAll = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -136,6 +145,7 @@ export default function UserManagement() {
 
   const clearFilters = () => {
     setKeyword(''); setDateFrom(''); setDateTo(''); setSessionFrom(''); setSessionTo('');
+    setFilterPackage('All'); setFilterStatus('All');
   };
 
   const handleLockUser = (user: User) => {
@@ -157,61 +167,88 @@ export default function UserManagement() {
         <p className="text-sm text-gray-500 mt-1">Quản lý danh sách khách hàng và lịch sử phiên.</p>
       </div>
 
-      {/* --- FILTER SECTION (Đã sửa theo yêu cầu) --- */}
+      {/* --- FILTER SECTION (Đã cập nhật thêm 2 ô lọc) --- */}
       <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 mb-6 transition-all hover:shadow-md">
         <div className="flex items-center gap-2 mb-4 text-purple-700 font-bold text-sm uppercase">
             <Filter size={16}/> Bộ lọc tìm kiếm
         </div>
         
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        {/* Chỉnh Grid thành 5 cột cho màn hình lớn */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
             
             {/* 1. Tìm kiếm Tên/ID */}
             <div className="relative group">
-                <label className="text-xs font-bold text-gray-400 uppercase mb-1.5 block">Tìm theo ID hoặc Tên</label>
+                <label className="text-xs font-bold text-gray-400 uppercase mb-1.5 block">Từ khóa</label>
                 <div className="relative">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-purple-500 transition-colors" size={18}/>
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-purple-500 transition-colors" size={16}/>
                     <input 
                         type="text" 
-                        placeholder="Nhập từ khóa..." 
-                        className="w-full pl-10 pr-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-purple-500 outline-none transition-all"
+                        placeholder="Tên hoặc ID..." 
+                        className="w-full pl-9 pr-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-purple-500 outline-none transition-all"
                         value={keyword}
                         onChange={e => setKeyword(e.target.value)}
                     />
                 </div>
             </div>
 
-            {/* 2. Khoảng thời gian (Gom thành 1 khung) */}
+            {/* 2. Gói dịch vụ (MỚI) */}
             <div>
-                <label className="text-xs font-bold text-gray-400 uppercase mb-1.5 block">Ngày tham gia (Từ - Đến)</label>
-                <div className="flex items-center border border-gray-200 rounded-xl overflow-hidden focus-within:ring-2 focus-within:ring-purple-500 transition-all">
+                <label className="text-xs font-bold text-gray-400 uppercase mb-1.5 block">Gói dịch vụ</label>
+                <select 
+                    className="w-full px-3 py-2.5 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-purple-500 outline-none bg-white text-gray-600"
+                    value={filterPackage}
+                    onChange={e => setFilterPackage(e.target.value)}
+                >
+                    <option value="All">Tất cả gói</option>
+                    <option value="Free">Gói Cơ Bản (Free)</option>
+                    <option value="Premium">Premium</option>
+                    <option value="VIP">VIP</option>
+                </select>
+            </div>
+
+            {/* 3. Trạng thái (MỚI) */}
+            <div>
+                <label className="text-xs font-bold text-gray-400 uppercase mb-1.5 block">Trạng thái</label>
+                <select 
+                    className="w-full px-3 py-2.5 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-purple-500 outline-none bg-white text-gray-600"
+                    value={filterStatus}
+                    onChange={e => setFilterStatus(e.target.value)}
+                >
+                    <option value="All">Tất cả trạng thái</option>
+                    <option value="Active">Hoạt động</option>
+                    <option value="Locked">Đã khóa</option>
+                    <option value="Inactive">Không hoạt động</option>
+                </select>
+            </div>
+
+            {/* 4. Khoảng thời gian */}
+            <div>
+                <label className="text-xs font-bold text-gray-400 uppercase mb-1.5 block">Ngày tham gia</label>
+                <div className="flex items-center gap-2">
                     <input 
                         type="date" 
-                        className="w-full px-3 py-2.5 text-sm outline-none text-gray-600 bg-white" 
+                        className="w-full px-2 py-2.5 border border-gray-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-purple-500 text-gray-500" 
                         value={dateFrom} onChange={e => setDateFrom(e.target.value)}
-                        placeholder="Từ ngày"
                     />
-                    <div className="bg-gray-100 px-3 py-2.5 border-l border-r border-gray-200 text-gray-400">
-                        <ArrowRight size={14}/>
-                    </div>
+                    <span className="text-gray-400">-</span>
                     <input 
                         type="date" 
-                        className="w-full px-3 py-2.5 text-sm outline-none text-gray-600 bg-white" 
+                        className="w-full px-2 py-2.5 border border-gray-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-purple-500 text-gray-500" 
                         value={dateTo} onChange={e => setDateTo(e.target.value)}
-                        placeholder="Đến ngày"
                     />
                 </div>
             </div>
 
-            {/* 3. Số phiên (Gom thành 1 khung) */}
+            {/* 5. Số phiên */}
             <div>
-                <label className="text-xs font-bold text-gray-400 uppercase mb-1.5 block">Số lượng phiên (Min - Max)</label>
-                <div className="flex items-center border border-gray-200 rounded-xl overflow-hidden focus-within:ring-2 focus-within:ring-purple-500 transition-all">
+                <label className="text-xs font-bold text-gray-400 uppercase mb-1.5 block">Số phiên (Min-Max)</label>
+                <div className="flex items-center border border-gray-200 rounded-xl overflow-hidden focus-within:ring-2 focus-within:ring-purple-500">
                     <input 
                         type="number" placeholder="0"
                         className="w-full px-3 py-2.5 text-sm outline-none text-gray-600 bg-white" 
                         value={sessionFrom} onChange={e => setSessionFrom(e.target.value)}
                     />
-                    <div className="bg-gray-100 px-3 py-2.5 border-l border-r border-gray-200 text-gray-400">
+                    <div className="bg-gray-100 px-2 py-2.5 border-l border-r border-gray-200 text-gray-400 text-xs">
                         -
                     </div>
                     <input 
@@ -234,7 +271,7 @@ export default function UserManagement() {
         </div>
       </div>
 
-      {/* --- TABLE SECTION (Bỏ cột Chi tiêu) --- */}
+      {/* --- TABLE SECTION --- */}
       <div className="bg-white rounded-2xl shadow-lg border border-gray-100 overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-left">
@@ -273,8 +310,9 @@ export default function UserManagement() {
                   <td className="px-6 py-4 font-bold text-gray-700 text-center">{user.completedSessionsCount}</td>
                   <td className="px-6 py-4"><StatusBadge status={user.status}/></td>
                   <td className="px-6 py-4 text-right">
+                    {/* --- ĐÃ SỬA: Text đồng nhất là "Chi tiết" --- */}
                     <button onClick={() => setSelectedUser(user)} className="px-3 py-1.5 bg-white border border-gray-200 text-gray-600 hover:text-purple-600 hover:border-purple-200 rounded-lg text-xs font-bold transition-all shadow-sm">
-                        Xem chi tiết
+                        Chi tiết
                     </button>
                   </td>
                 </tr>
@@ -285,7 +323,7 @@ export default function UserManagement() {
         {filteredUsers.length === 0 && <div className="p-10 text-center text-gray-400 italic">Không tìm thấy kết quả phù hợp.</div>}
       </div>
 
-      {/* --- MODAL DETAIL USER (Có Lịch sử & Không có nút Xóa) --- */}
+      {/* --- MODAL DETAIL USER --- */}
       {selectedUser && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-sm p-4 animate-in fade-in">
             <div className="bg-white rounded-3xl w-full max-w-5xl h-[85vh] flex overflow-hidden shadow-2xl">
@@ -317,7 +355,7 @@ export default function UserManagement() {
                         </div>
                     </div>
 
-                    {/* Action Button: Chỉ Khóa, không Xóa */}
+                    {/* Action Button */}
                     <div className="mt-auto">
                         <button onClick={() => handleLockUser(selectedUser)} className={`w-full py-3 rounded-xl text-sm font-bold text-white shadow-sm transition-all flex items-center justify-center gap-2 ${selectedUser.status === 'Locked' ? 'bg-green-600 hover:bg-green-700' : 'bg-orange-500 hover:bg-orange-600'}`}>
                             {selectedUser.status === 'Locked' ? <><Unlock size={16}/> Mở khóa tài khoản</> : <><Lock size={16}/> Khóa tài khoản</>}
@@ -369,7 +407,7 @@ export default function UserManagement() {
         </div>
       )}
 
-      {/* --- MODAL SESSION REPORT (Chi tiết luận giải) --- */}
+      {/* --- MODAL SESSION REPORT --- */}
       {viewSessionReport && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40 backdrop-blur-sm p-4 animate-in fade-in">
             <div className="bg-white rounded-2xl w-full max-w-lg shadow-2xl overflow-hidden animate-in zoom-in-95">

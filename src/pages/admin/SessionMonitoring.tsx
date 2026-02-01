@@ -43,7 +43,7 @@ interface Session {
   dispute?: DisputeInfo;
 }
 
-// --- 2. MOCK DATA (Đã thay link ảnh ổn định 100%) ---
+// --- 2. MOCK DATA ---
 const MOCK_SESSIONS: Session[] = [
   // 1. Đang diễn ra
   {
@@ -222,7 +222,9 @@ export default function SessionMonitoring() {
                               {activeTab === 'completed' && <td className="px-6 py-4"><div className="flex items-center gap-1 text-amber-500 font-bold text-sm">{session.rating} <Star size={12} fill="currentColor"/></div></td>}
                               {activeTab === 'dispute' && <td className="px-6 py-4"><StatusBadge status={session.status} disputeStatus={session.dispute?.status}/></td>}
                               <td className="px-6 py-4 text-right">
-                                  <button onClick={() => setSelectedSession(session)} className="text-purple-600 hover:bg-purple-50 px-3 py-1.5 rounded-lg text-xs font-bold border border-purple-200 transition-all shadow-sm">Xem chi tiết</button>
+                                  <button onClick={() => setSelectedSession(session)} className="text-purple-600 hover:bg-purple-50 px-3 py-1.5 rounded-lg text-xs font-bold border border-purple-200 transition-all shadow-sm">
+                                      Chi tiết
+                                  </button>
                               </td>
                           </tr>
                       ))}

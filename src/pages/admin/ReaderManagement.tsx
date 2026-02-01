@@ -4,9 +4,9 @@ import {
   ChevronRight, Calendar, MapPin, Mail, Phone, 
   Trophy, History, RefreshCcw, Lock, MoreHorizontal,
   Star, TrendingUp, Sparkles, UserPlus, CheckCircle2, XCircle,
-  ArrowUpRight, ArrowDownRight, BadgeCheck, Edit3, Image as ImageIcon // Import Icon ảnh
+  ArrowUpRight, ArrowDownRight, BadgeCheck, Edit3, Image as ImageIcon,
+  CalendarDays
 } from 'lucide-react';
-import StatusBadge from '../../components/common/StatusBadge';
 
 // --- 1. INTERFACE ---
 interface Reader {
@@ -19,13 +19,9 @@ interface Reader {
   joinDate: string;
   address: string;
   specialty: string[];
-  experienceImgs: string[]; // Ảnh bằng cấp/chứng chỉ cũ
-  
-  // --- MỚI: KINH NGHIỆM & FEEDBACK ---
-  experienceText: string; // Mô tả kinh nghiệm text
-  feedbackImages: string[]; // Ảnh feedback thực tế
-  // -----------------------------------
-
+  experienceImgs: string[];
+  experienceText: string;
+  feedbackImages: string[];
   bio: string;
   completedSessions: number;
   totalPurchases: number;
@@ -45,13 +41,9 @@ interface PendingReader {
   testScore: number;
   dob: string;
   specialty: string[];
-  experienceImgs: string[]; // Chứng chỉ
-  
-  // --- MỚI: KINH NGHIỆM & FEEDBACK ---
+  experienceImgs: string[];
   experienceText: string;
   feedbackImages: string[];
-  // -----------------------------------
-
   bio: string;
   status: 'Pending' | 'Rejected';
 }
@@ -105,15 +97,11 @@ const MOCK_PENDING: PendingReader[] = [
     id: 'TEMP001', fullName: 'Luna Lovegood', email: 'luna@moon.com', phone: '0988777666',
     submissionDate: '2024-02-01', testScore: 85, dob: '2000-01-01',
     specialty: ['Oracle', 'Healing'], experienceImgs: ['https://placehold.co/100'], 
-    
-    // Dữ liệu kinh nghiệm & feedback giả lập
-    experienceText: 'Em đã có 3 năm kinh nghiệm xem bài Oracle cho các bạn sinh viên và khách online. Em chuyên về chữa lành và định hướng tâm lý.',
+    experienceText: 'Em đã có 3 năm kinh nghiệm xem bài Oracle cho các bạn sinh viên và khách online.',
     feedbackImages: [
-        'https://placehold.co/300x400/fae8ff/9333ea?text=Feedback+Zalo+1',
-        'https://placehold.co/300x400/fae8ff/9333ea?text=Feedback+FB+2',
-        'https://placehold.co/300x400/fae8ff/9333ea?text=Anh+Trai+Bai'
+        'https://placehold.co/300x400/fae8ff/9333ea?text=Feedback+1',
+        'https://placehold.co/300x400/fae8ff/9333ea?text=Feedback+2'
     ],
-
     bio: 'Tôi yêu thích việc chữa lành tâm hồn bằng bài Oracle.',
     status: 'Pending'
   },
@@ -121,12 +109,8 @@ const MOCK_PENDING: PendingReader[] = [
     id: 'TEMP002', fullName: 'Harry Potter', email: 'harry@hogwarts.com', phone: '0912345678',
     submissionDate: '2024-02-02', testScore: 92, dob: '1980-07-31',
     specialty: ['Tarot'], experienceImgs: [], 
-    
-    experienceText: 'Kinh nghiệm thực chiến 10 năm đối đầu với Hắc ám. Đã xem cho nhiều phù thủy nổi tiếng.',
-    feedbackImages: [
-        'https://placehold.co/300x400/fff1f2/be123c?text=Feedback+Ministry'
-    ],
-
+    experienceText: 'Kinh nghiệm thực chiến 10 năm đối đầu với Hắc ám.',
+    feedbackImages: [],
     bio: 'The boy who lived.',
     status: 'Pending'
   }
@@ -134,23 +118,42 @@ const MOCK_PENDING: PendingReader[] = [
 
 const MOCK_LOGS: EloLog[] = [
   { id: 1, readerId: 'RD001', readerName: 'Madame Rose', type: 'Algorithm', oldElo: 2425, newElo: 2450, change: 25, reason: 'Thắng phiên', timestamp: '2024-02-01 10:30' },
-  { id: 2, readerId: 'RD002', readerName: 'Mystic John', type: 'Manual', oldElo: 1900, newElo: 1850, change: -50, reason: 'Vi phạm quy tắc', adminName: 'Admin', timestamp: '2024-01-30 15:00' },
 ];
+
+// Fallback StatusBadge
+const StatusBadge = ({ status }: { status: string }) => {
+    const styles: Record<string, string> = {
+        Active: 'bg-emerald-50 text-emerald-600 border-emerald-100',
+        Locked: 'bg-red-50 text-red-600 border-red-100',
+        Pending: 'bg-amber-50 text-amber-600 border-amber-100',
+        Rejected: 'bg-gray-100 text-gray-500 border-gray-200',
+        Busy: 'bg-purple-50 text-purple-600 border-purple-100',
+        Offline: 'bg-slate-100 text-slate-500 border-slate-200',
+    };
+    return (
+        <span className={`px-2.5 py-1 rounded-lg text-[10px] font-bold border uppercase tracking-wider ${styles[status] || 'bg-gray-50 text-gray-500'}`}>
+            {status}
+        </span>
+    );
+};
 
 // --- 3. MAIN COMPONENT ---
 export default function ReaderManagement() {
   const [activeTab, setActiveTab] = useState<'list' | 'pending' | 'ranking' | 'logs'>('list');
   
-  // Data States
+  // Data
   const [readers, setReaders] = useState<Reader[]>(MOCK_READERS);
   const [pendingReaders, setPendingReaders] = useState<PendingReader[]>(MOCK_PENDING);
   const [eloLogs, setEloLogs] = useState<EloLog[]>(MOCK_LOGS);
 
-  // Filter States
+  // --- FILTER STATES ---
   const [filterName, setFilterName] = useState('');
-  const [filterID, setFilterID] = useState('');
-  const [filterPurchases, setFilterPurchases] = useState('');
-  const [filterRating, setFilterRating] = useState('');
+  const [filterStatus, setFilterStatus] = useState('All');
+  const [filterEloMin, setFilterEloMin] = useState('');
+  const [filterEloMax, setFilterEloMax] = useState('');
+  const [filterDateFrom, setFilterDateFrom] = useState('');
+  const [filterDateTo, setFilterDateTo] = useState('');
+  
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 
   // Action States
@@ -163,15 +166,30 @@ export default function ReaderManagement() {
   // --- LOGIC: FILTER ---
   const filteredReaders = useMemo(() => {
     return readers.filter(r => {
+      // 1. Tên
       const matchName = r.fullName.toLowerCase().includes(filterName.toLowerCase());
-      const matchID = r.id.toLowerCase().includes(filterID.toLowerCase());
-      const matchPurchases = filterPurchases ? r.totalPurchases >= Number(filterPurchases) : true;
-      const matchRating = filterRating ? r.rating >= Number(filterRating) : true;
-      return matchName && matchID && matchPurchases && matchRating;
-    });
-  }, [readers, filterName, filterID, filterPurchases, filterRating]);
+      
+      // 2. Trạng thái
+      const matchStatus = filterStatus === 'All' ? true : r.status === filterStatus;
 
-  // --- HANDLERS ---
+      // 3. Elo Range
+      const minElo = filterEloMin ? parseInt(filterEloMin) : 0;
+      const maxElo = filterEloMax ? parseInt(filterEloMax) : 99999;
+      const matchElo = r.elo >= minElo && r.elo <= maxElo;
+
+      // 4. Date Range (Join Date)
+      let matchDate = true;
+      if (filterDateFrom || filterDateTo) {
+          const joinDate = new Date(r.joinDate);
+          const from = filterDateFrom ? new Date(filterDateFrom) : new Date('1900-01-01');
+          const to = filterDateTo ? new Date(filterDateTo) : new Date('2100-01-01');
+          matchDate = joinDate >= from && joinDate <= to;
+      }
+
+      return matchName && matchStatus && matchElo && matchDate;
+    });
+  }, [readers, filterName, filterStatus, filterEloMin, filterEloMax, filterDateFrom, filterDateTo]);
+
   const handleCheckAll = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.checked) setSelectedIds(new Set(filteredReaders.map(r => r.id)));
     else setSelectedIds(new Set());
@@ -184,14 +202,17 @@ export default function ReaderManagement() {
   };
 
   const clearFilters = () => {
-    setFilterName(''); setFilterID(''); setFilterPurchases(''); setFilterRating('');
+    setFilterName('');
+    setFilterStatus('All');
+    setFilterEloMin('');
+    setFilterEloMax('');
+    setFilterDateFrom('');
+    setFilterDateTo('');
   };
 
   const handleRejectPending = (reader: PendingReader) => {
     if (!window.confirm("Xác nhận TỪ CHỐI hồ sơ này?")) return;
-    const updatedList = pendingReaders.filter(p => p.id !== reader.id);
-    updatedList.push({ ...reader, status: 'Rejected' });
-    setPendingReaders(updatedList);
+    setPendingReaders(pendingReaders.filter(p => p.id !== reader.id));
     setSelectedPending(null);
   };
 
@@ -202,7 +223,6 @@ export default function ReaderManagement() {
       fullName: reader.fullName, email: reader.email, account: reader.email.split('@')[0],
       phone: reader.phone, dob: reader.dob, joinDate: new Date().toISOString().split('T')[0],
       address: 'Chưa cập nhật', specialty: reader.specialty, experienceImgs: reader.experienceImgs,
-      // Chuyển data kinh nghiệm sang
       experienceText: reader.experienceText, feedbackImages: reader.feedbackImages,
       bio: reader.bio, completedSessions: 0, totalPurchases: 0, acceptanceRate: 100,
       rating: 5.0, elo: 1200, status: 'Active', avatar: `https://ui-avatars.com/api/?name=${reader.fullName}&background=random`
@@ -237,7 +257,7 @@ export default function ReaderManagement() {
   return (
     <div className="min-h-screen bg-slate-50/50 pb-20 animate-fade-in-up font-sans text-slate-800 p-2">
       
-      {/* --- HEADER TITLE --- */}
+      {/* HEADER */}
       <div className="mb-6 flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
            <h1 className="text-2xl md:text-3xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-purple-700 to-indigo-600">
@@ -255,7 +275,7 @@ export default function ReaderManagement() {
         </div>
       </div>
 
-      {/* --- MODERN TABS --- */}
+      {/* TABS */}
       <div className="bg-white p-1.5 rounded-2xl shadow-sm border border-gray-100 inline-flex mb-8 overflow-x-auto max-w-full">
         {[
           { id: 'list', label: 'Danh sách Reader', icon: Eye },
@@ -281,101 +301,97 @@ export default function ReaderManagement() {
         ))}
       </div>
 
-      {/* ================= TAB 1: DANH SÁCH READER ================= */}
+      {/* LIST TAB */}
       {activeTab === 'list' && (
         <div className="space-y-6">
-          {/* Advanced Filter Box */}
-          <div className="bg-white p-6 rounded-3xl shadow-sm border border-gray-100 transition-all hover:shadow-md">
+          {/* FILTER */}
+          <div className="bg-white p-6 rounded-3xl shadow-sm border border-gray-100">
             <div className="flex justify-between items-center mb-4">
               <h3 className="text-sm font-bold text-gray-800 flex items-center gap-2">
                 <Filter size={18} className="text-purple-600"/> Bộ lọc tìm kiếm
               </h3>
-              {filteredReaders.length > 0 && (
-                <span className="text-xs font-semibold bg-purple-50 text-purple-700 px-3 py-1 rounded-full border border-purple-100">
-                  Tìm thấy {filteredReaders.length} kết quả
-                </span>
-              )}
+              {filteredReaders.length > 0 && <span className="text-xs font-semibold bg-purple-50 text-purple-700 px-3 py-1 rounded-full border border-purple-100">Tìm thấy {filteredReaders.length} kết quả</span>}
             </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
-              <input type="text" placeholder="Tên Reader..." value={filterName} onChange={e => setFilterName(e.target.value)} 
-                  className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-purple-500 focus:bg-white transition-all text-sm font-medium" />
-              <input type="text" placeholder="Mã ID..." value={filterID} onChange={e => setFilterID(e.target.value)}
-                  className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-purple-500 focus:bg-white transition-all text-sm font-medium" />
-              <input type="number" placeholder="Lượt mua >=" value={filterPurchases} onChange={e => setFilterPurchases(e.target.value)}
-                  className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-purple-500 focus:bg-white transition-all text-sm font-medium" />
-              <input type="number" placeholder="Rating >=" value={filterRating} onChange={e => setFilterRating(e.target.value)}
-                  className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-purple-500 focus:bg-white transition-all text-sm font-medium" />
-              
-              <button onClick={clearFilters} className="w-full h-full bg-gray-100 hover:bg-gray-200 text-gray-600 font-bold rounded-xl transition-colors flex items-center justify-center gap-2 text-sm">
-                <RefreshCcw size={16} /> Reset
-              </button>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                {/* 1. Tìm tên */}
+                <div className="relative">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16}/>
+                    <input type="text" placeholder="Tìm tên Reader..." value={filterName} onChange={e => setFilterName(e.target.value)} 
+                        className="w-full pl-9 pr-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-purple-500 text-sm font-medium" />
+                </div>
+
+                {/* 2. Trạng thái */}
+                <select 
+                    value={filterStatus} 
+                    onChange={e => setFilterStatus(e.target.value)}
+                    className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-purple-500 text-sm font-medium"
+                >
+                    <option value="All">Tất cả trạng thái</option>
+                    <option value="Active">Active (Hoạt động)</option>
+                    <option value="Locked">Locked (Đã khóa)</option>
+                    <option value="Busy">Busy (Bận)</option>
+                    <option value="Offline">Offline</option>
+                </select>
+
+                {/* 3. Khoảng ELO */}
+                <div className="flex items-center gap-2">
+                    <input type="number" placeholder="Elo Min" value={filterEloMin} onChange={e => setFilterEloMin(e.target.value)} 
+                        className="w-full px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-purple-500 text-sm font-medium" />
+                    <span className="text-gray-400">-</span>
+                    <input type="number" placeholder="Max" value={filterEloMax} onChange={e => setFilterEloMax(e.target.value)} 
+                        className="w-full px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-purple-500 text-sm font-medium" />
+                </div>
+
+                {/* 4. Ngày tham gia */}
+                <div className="flex items-center gap-2">
+                    <input type="date" value={filterDateFrom} onChange={e => setFilterDateFrom(e.target.value)} 
+                        className="w-full px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-purple-500 text-sm font-medium text-gray-500" />
+                    <span className="text-gray-400"><CalendarDays size={16}/></span>
+                    <input type="date" value={filterDateTo} onChange={e => setFilterDateTo(e.target.value)} 
+                        className="w-full px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-purple-500 text-sm font-medium text-gray-500" />
+                </div>
             </div>
           </div>
 
-          {/* Main Table */}
+          {/* TABLE */}
           <div className="bg-white rounded-3xl shadow-lg shadow-gray-200/50 border border-gray-100 overflow-hidden">
             <div className="overflow-x-auto">
               <table className="w-full text-left border-collapse">
                 <thead className="bg-slate-50 border-b border-gray-200">
                   <tr>
-                    <th className="px-6 py-4 text-center w-14">
-                      <input type="checkbox" onChange={handleCheckAll} checked={filteredReaders.length > 0 && selectedIds.size === filteredReaders.length} 
-                        className="w-4 h-4 rounded border-gray-300 text-purple-600 focus:ring-purple-500 cursor-pointer"/>
-                    </th>
-                    <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Thông tin Reader</th>
-                    <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Thống kê</th>
-                    <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider">ELO & Rating</th>
-                    <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Trạng thái</th>
-                    <th className="px-6 py-4 text-right text-xs font-bold text-gray-500 uppercase tracking-wider">Hành động</th>
+                    <th className="px-6 py-4 text-center w-14"><input type="checkbox" onChange={handleCheckAll} checked={filteredReaders.length > 0 && selectedIds.size === filteredReaders.length} className="w-4 h-4 rounded border-gray-300 text-purple-600 focus:ring-purple-500"/></th>
+                    <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase">Thông tin Reader</th>
+                    <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase">Thống kê</th>
+                    <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase">ELO & Rating</th>
+                    <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase">Trạng thái</th>
+                    <th className="px-6 py-4 text-right text-xs font-bold text-gray-500 uppercase">Hành động</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100">
                   {filteredReaders.map(reader => (
                     <tr key={reader.id} className="hover:bg-purple-50/30 transition-all duration-200 group">
-                      <td className="px-6 py-5 text-center">
-                        <input type="checkbox" checked={selectedIds.has(reader.id)} onChange={() => handleCheckOne(reader.id)} 
-                          className="w-4 h-4 rounded border-gray-300 text-purple-600 focus:ring-purple-500 cursor-pointer"/>
-                      </td>
+                      <td className="px-6 py-5 text-center"><input type="checkbox" checked={selectedIds.has(reader.id)} onChange={() => handleCheckOne(reader.id)} className="w-4 h-4 rounded border-gray-300 text-purple-600 focus:ring-purple-500"/></td>
                       <td className="px-6 py-5">
                         <div className="flex items-center gap-4">
                           <div className="relative">
                             <img src={reader.avatar} alt="" className="w-10 h-10 rounded-full object-cover border-2 border-white shadow-sm" />
-                            {reader.elo >= 2000 && <div className="absolute -top-1 -right-1 bg-yellow-400 p-0.5 rounded-full border border-white"><Trophy size={10} className="text-white" fill="currentColor"/></div>}
+                            {reader.elo >= 2000 && <div className="absolute -top-1 -right-1 bg-amber-500 p-0.5 rounded-full border border-white"><Trophy size={10} className="text-white" fill="currentColor"/></div>}
                           </div>
                           <div>
                             <p className="font-bold text-gray-900 text-sm group-hover:text-purple-700 transition-colors">{reader.fullName}</p>
                             <p className="font-mono text-[10px] text-gray-400 mt-0.5">{reader.id}</p>
+                            <p className="text-[10px] text-gray-400">Tham gia: {reader.joinDate}</p>
                           </div>
                         </div>
                       </td>
-                      <td className="px-6 py-5">
-                        <div className="space-y-1">
-                          <div className="flex items-center gap-2 text-xs font-medium text-gray-600">
-                             <CheckCircle2 size={12} className="text-green-500"/> {reader.completedSessions} phiên
-                          </div>
-                          <div className="flex items-center gap-2 text-xs font-medium text-gray-600">
-                             <TrendingUp size={12} className="text-blue-500"/> {reader.totalPurchases} lượt mua
-                          </div>
-                        </div>
-                      </td>
-                      <td className="px-6 py-5">
-                        <div className="flex flex-col gap-1">
-                           <span className="text-base font-black text-transparent bg-clip-text bg-gradient-to-r from-purple-600 to-indigo-600">{reader.elo}</span>
-                           <div className="flex items-center gap-1 text-xs font-bold text-amber-500">
-                              {reader.rating} <Star size={10} fill="currentColor"/>
-                           </div>
-                        </div>
-                      </td>
+                      <td className="px-6 py-5"><div className="space-y-1"><div className="flex items-center gap-2 text-xs font-medium text-gray-600"><CheckCircle2 size={12} className="text-green-500"/> {reader.completedSessions} phiên</div><div className="flex items-center gap-2 text-xs font-medium text-gray-600"><TrendingUp size={12} className="text-blue-500"/> {reader.totalPurchases} lượt mua</div></div></td>
+                      <td className="px-6 py-5"><div className="flex flex-col gap-1"><span className="text-base font-black text-transparent bg-clip-text bg-gradient-to-r from-purple-600 to-indigo-600">{reader.elo}</span><div className="flex items-center gap-1 text-xs font-bold text-amber-500">{reader.rating} <Star size={10} fill="currentColor"/></div></div></td>
                       <td className="px-6 py-5"><StatusBadge status={reader.status} /></td>
                       <td className="px-6 py-5 text-right">
                         <div className="flex justify-end gap-2">
-                           <button onClick={() => setAdjustEloReader(reader)} className="bg-purple-50 text-purple-600 p-2 rounded-lg hover:bg-purple-100 hover:text-purple-700 transition-colors" title="Điều chỉnh ELO">
-                              <RefreshCcw size={16}/>
-                           </button>
-                           <button onClick={() => setSelectedReader(reader)} 
-                            className="bg-white border border-gray-200 hover:border-purple-300 hover:text-purple-600 text-gray-500 px-3 py-1.5 rounded-lg text-xs font-bold shadow-sm transition-all">
-                            Chi tiết
-                           </button>
+                           <button onClick={() => setAdjustEloReader(reader)} className="bg-purple-50 text-purple-600 p-2 rounded-lg hover:bg-purple-100" title="Điều chỉnh ELO"><RefreshCcw size={16}/></button>
+                           <button onClick={() => setSelectedReader(reader)} className="bg-white border border-gray-200 text-gray-500 px-3 py-1.5 rounded-lg text-xs font-bold shadow-sm">Chi tiết</button>
                         </div>
                       </td>
                     </tr>
@@ -383,16 +399,12 @@ export default function ReaderManagement() {
                 </tbody>
               </table>
             </div>
-            {filteredReaders.length === 0 && (
-                <div className="p-10 text-center">
-                    <p className="text-gray-500 font-medium">Không tìm thấy dữ liệu.</p>
-                </div>
-            )}
+            {filteredReaders.length === 0 && <div className="p-10 text-center"><p className="text-gray-500 font-medium">Không tìm thấy kết quả phù hợp.</p></div>}
           </div>
         </div>
       )}
 
-      {/* ================= TAB 2: PENDING ================= */}
+      {/* PENDING TAB */}
       {activeTab === 'pending' && (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
            {pendingReaders.map(p => (
@@ -413,70 +425,59 @@ export default function ReaderManagement() {
         </div>
       )}
 
-      {/* ================= TAB 3: RANKING ================= */}
+      {/* RANKING TAB */}
       {activeTab === 'ranking' && (
         <div className="bg-white rounded-3xl shadow-xl border border-gray-100 overflow-hidden">
             <div className="p-6 bg-slate-900 text-white"><h2 className="text-xl font-bold flex items-center gap-2"><Trophy className="text-yellow-400" /> Bảng Xếp Hạng ELO</h2></div>
             <table className="w-full text-left">
-                <thead className="text-xs font-bold text-gray-400 uppercase border-b border-gray-100">
-                    <tr><th className="px-6 py-4">Rank</th><th className="px-6 py-4">Reader</th><th className="px-6 py-4">ID</th><th className="px-6 py-4">ELO</th><th className="px-6 py-4 text-right">Điều chỉnh</th></tr>
-                </thead>
-                <tbody className="divide-y divide-gray-50">
-                    {[...readers].sort((a,b) => b.elo - a.elo).map((r, i) => (
-                        <tr key={r.id} className="hover:bg-purple-50/20 transition-colors">
-                            <td className="px-6 py-5"><div className={`w-8 h-8 rounded-full flex items-center justify-center font-black text-sm ${i < 3 ? 'bg-yellow-400 text-yellow-900' : 'bg-gray-100'}`}>{i+1}</div></td>
-                            <td className="px-6 py-5 font-bold flex items-center gap-3"><img src={r.avatar} className="w-8 h-8 rounded-full" alt=""/>{r.fullName}</td>
-                            <td className="px-6 py-5 text-xs text-gray-400 font-mono">{r.id}</td>
-                            <td className="px-6 py-5 text-lg font-black text-purple-700">{r.elo}</td>
-                            <td className="px-6 py-5 text-right"><button onClick={() => setAdjustEloReader(r)} className="bg-purple-50 text-purple-700 px-3 py-1.5 rounded-lg text-xs font-bold hover:bg-purple-100">Điều chỉnh</button></td>
-                        </tr>
-                    ))}
-                </tbody>
+                <thead className="text-xs font-bold text-gray-400 uppercase border-b border-gray-100"><tr><th className="px-6 py-4">Rank</th><th className="px-6 py-4">Reader</th><th className="px-6 py-4">ID</th><th className="px-6 py-4">ELO</th><th className="px-6 py-4 text-right">Điều chỉnh</th></tr></thead>
+                <tbody className="divide-y divide-gray-50">{[...readers].sort((a,b) => b.elo - a.elo).map((r, i) => (
+                    <tr key={r.id} className="hover:bg-purple-50/20"><td className="px-6 py-5"><div className={`w-8 h-8 rounded-full flex items-center justify-center font-black text-sm ${i < 3 ? 'bg-yellow-400 text-yellow-900' : 'bg-gray-100'}`}>{i+1}</div></td><td className="px-6 py-5 font-bold flex items-center gap-3"><img src={r.avatar} className="w-8 h-8 rounded-full" alt=""/>{r.fullName}</td><td className="px-6 py-5 text-xs text-gray-400 font-mono">{r.id}</td><td className="px-6 py-5 text-lg font-black text-purple-700">{r.elo}</td><td className="px-6 py-5 text-right"><button onClick={() => setAdjustEloReader(r)} className="bg-purple-50 text-purple-700 px-3 py-1.5 rounded-lg text-xs font-bold hover:bg-purple-100">Điều chỉnh</button></td></tr>
+                ))}</tbody>
             </table>
         </div>
       )}
 
-      {/* ================= TAB 4: LOGS ================= */}
+      {/* LOGS TAB */}
       {activeTab === 'logs' && (
         <div className="bg-white rounded-3xl shadow-xl border border-gray-100 p-6">
             <h3 className="font-bold text-lg mb-6 flex items-center gap-2"><History className="text-purple-600"/> Nhật ký hệ thống</h3>
-            <table className="w-full text-left">
-                <thead className="bg-gray-50 rounded-lg text-xs font-bold text-gray-500 uppercase">
-                    <tr><th className="px-4 py-3">Reader</th><th className="px-4 py-3">Loại</th><th className="px-4 py-3">Thay đổi</th><th className="px-4 py-3">ELO Mới</th><th className="px-4 py-3">Lý do</th><th className="px-4 py-3">Thời gian</th></tr>
-                </thead>
-                <tbody className="divide-y divide-gray-50">
-                    {eloLogs.map(log => (
-                        <tr key={log.id}>
-                            <td className="px-4 py-4 font-medium text-sm">{log.readerName}</td>
-                            <td className="px-4 py-4"><span className={`text-[10px] uppercase font-bold px-2 py-1 rounded ${log.type === 'Algorithm' ? 'bg-blue-50 text-blue-600' : 'bg-orange-50 text-orange-600'}`}>{log.type}</span></td>
-                            <td className={`px-4 py-4 font-bold ${log.change > 0 ? 'text-green-600' : 'text-red-600'}`}>{log.change > 0 ? '+' : ''}{log.change}</td>
-                            <td className="px-4 py-4 font-mono text-sm">{log.newElo}</td>
-                            <td className="px-4 py-4 text-sm text-gray-600">{log.reason}</td>
-                            <td className="px-4 py-4 text-xs text-gray-400">{log.timestamp}</td>
-                        </tr>
-                    ))}
-                </tbody>
-            </table>
+            <table className="w-full text-left"><thead className="bg-gray-50 rounded-lg text-xs font-bold text-gray-500 uppercase"><tr><th className="px-4 py-3">Reader</th><th className="px-4 py-3">Loại</th><th className="px-4 py-3">Thay đổi</th><th className="px-4 py-3">ELO Mới</th><th className="px-4 py-3">Lý do</th><th className="px-4 py-3">Thời gian</th></tr></thead><tbody className="divide-y divide-gray-50">{eloLogs.map(log => (<tr key={log.id}><td className="px-4 py-4 font-medium text-sm">{log.readerName}</td><td className="px-4 py-4"><span className={`text-[10px] uppercase font-bold px-2 py-1 rounded ${log.type === 'Algorithm' ? 'bg-blue-50 text-blue-600' : 'bg-orange-50 text-orange-600'}`}>{log.type}</span></td><td className={`px-4 py-4 font-bold ${log.change > 0 ? 'text-green-600' : 'text-red-600'}`}>{log.change > 0 ? '+' : ''}{log.change}</td><td className="px-4 py-4 font-mono text-sm">{log.newElo}</td><td className="px-4 py-4 text-sm text-gray-600">{log.reason}</td><td className="px-4 py-4 text-xs text-gray-400">{log.timestamp}</td></tr>))}</tbody></table>
         </div>
       )}
 
-      {/* ================= MODAL: DETAIL ================= */}
+      {/* ================= MODAL: DETAIL (ĐÃ SỬA: NỀN TRẮNG, CHỮ ĐEN) ================= */}
       {selectedReader && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4 animate-in fade-in">
-            <div className="bg-white rounded-3xl w-full max-w-4xl max-h-[90vh] overflow-y-auto shadow-2xl animate-in zoom-in-95">
-                <div className="relative h-32 bg-gradient-to-r from-purple-800 to-indigo-900">
-                    <button onClick={() => setSelectedReader(null)} className="absolute top-4 right-4 bg-black/20 text-white p-2 rounded-full"><X size={20}/></button>
-                    <div className="absolute -bottom-12 left-8 flex items-end gap-6">
-                        <img src={selectedReader.avatar} className="w-24 h-24 rounded-full border-4 border-white shadow-lg" alt=""/>
-                        <div className="pb-2"><h2 className="text-2xl font-bold text-white">{selectedReader.fullName}</h2><span className="bg-white/90 text-slate-800 px-2 py-0.5 rounded text-xs font-bold">{selectedReader.id}</span></div>
+            <div className="bg-white rounded-3xl w-full max-w-4xl max-h-[90vh] overflow-y-auto shadow-2xl animate-in zoom-in-95 flex flex-col">
+                
+                {/* HEADER: Nút đóng + Avatar + Tên (Nền trắng, text đen) */}
+                <div className="p-8 pb-0 relative">
+                    <button onClick={() => setSelectedReader(null)} className="absolute top-6 right-6 p-2 text-gray-400 hover:bg-gray-100 hover:text-red-500 rounded-full transition-colors">
+                        <X size={24}/>
+                    </button>
+                    
+                    <div className="flex items-center gap-6">
+                        <img src={selectedReader.avatar} className="w-24 h-24 rounded-full border-4 border-white shadow-lg object-cover" alt=""/>
+                        <div>
+                            {/* Chữ đen đậm cho tên Reader */}
+                            <h2 className="text-2xl font-bold text-slate-800">{selectedReader.fullName}</h2>
+                            <div className="flex items-center gap-2 mt-1">
+                                <span className="bg-gray-100 text-slate-500 px-2 py-0.5 rounded text-xs font-bold border border-gray-200">{selectedReader.id}</span>
+                                <StatusBadge status={selectedReader.status}/>
+                            </div>
+                        </div>
                     </div>
                 </div>
-                <div className="mt-16 px-8 pb-8 grid grid-cols-1 lg:grid-cols-3 gap-8 text-sm">
+
+                {/* BODY */}
+                <div className="p-8 grid grid-cols-1 lg:grid-cols-3 gap-8 text-sm">
                     <div className="space-y-3 lg:col-span-1">
                         <p className="flex justify-between text-gray-600"><span className="text-gray-400">Account:</span> {selectedReader.account}</p>
                         <p className="flex justify-between text-gray-600"><span className="text-gray-400">Email:</span> {selectedReader.email}</p>
                         <p className="flex justify-between text-gray-600"><span className="text-gray-400">SĐT:</span> {selectedReader.phone}</p>
                         <p className="flex justify-between text-gray-600"><span className="text-gray-400">Địa chỉ:</span> {selectedReader.address}</p>
+                        <p className="flex justify-between text-gray-600"><span className="text-gray-400">Ngày tham gia:</span> {selectedReader.joinDate}</p>
                     </div>
                     <div className="lg:col-span-2 space-y-6">
                         <div className="grid grid-cols-3 gap-4 text-center">
@@ -519,7 +520,7 @@ export default function ReaderManagement() {
         </div>
       )}
 
-      {/* MODAL: PENDING - UPDATE 2: HIỂN THỊ KINH NGHIỆM & ẢNH FEEDBACK */}
+      {/* MODAL: PENDING */}
       {selectedPending && (
          <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4 animate-in fade-in">
             <div className="bg-white rounded-3xl w-full max-w-3xl max-h-[90vh] overflow-y-auto shadow-2xl p-8">

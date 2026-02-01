@@ -4,7 +4,7 @@ import {
   ChevronRight, Calendar, MapPin, Mail, Phone, 
   Trophy, History, RefreshCcw, Lock, MoreHorizontal,
   Star, TrendingUp, Sparkles, UserPlus, CheckCircle2, XCircle,
-  ArrowUpRight, ArrowDownRight, BadgeCheck, Edit3
+  ArrowUpRight, ArrowDownRight, BadgeCheck, Edit3, Image as ImageIcon // Import Icon ảnh
 } from 'lucide-react';
 import StatusBadge from '../../components/common/StatusBadge';
 
@@ -19,7 +19,13 @@ interface Reader {
   joinDate: string;
   address: string;
   specialty: string[];
-  experienceImgs: string[];
+  experienceImgs: string[]; // Ảnh bằng cấp/chứng chỉ cũ
+  
+  // --- MỚI: KINH NGHIỆM & FEEDBACK ---
+  experienceText: string; // Mô tả kinh nghiệm text
+  feedbackImages: string[]; // Ảnh feedback thực tế
+  // -----------------------------------
+
   bio: string;
   completedSessions: number;
   totalPurchases: number;
@@ -39,7 +45,13 @@ interface PendingReader {
   testScore: number;
   dob: string;
   specialty: string[];
-  experienceImgs: string[];
+  experienceImgs: string[]; // Chứng chỉ
+  
+  // --- MỚI: KINH NGHIỆM & FEEDBACK ---
+  experienceText: string;
+  feedbackImages: string[];
+  // -----------------------------------
+
   bio: string;
   status: 'Pending' | 'Rejected';
 }
@@ -62,7 +74,8 @@ const MOCK_READERS: Reader[] = [
   {
     id: 'RD001', fullName: 'Madame Rose', email: 'rose@tarot.com', account: 'rose_tarot',
     phone: '0909111222', dob: '1990-05-15', joinDate: '2023-01-10', address: 'Hà Nội',
-    specialty: ['Tình yêu', 'Công việc'], experienceImgs: ['https://placehold.co/100', 'https://placehold.co/100'],
+    specialty: ['Tình yêu', 'Công việc'], experienceImgs: ['https://placehold.co/100'],
+    experienceText: '5 năm kinh nghiệm xem tại quán cà phê.', feedbackImages: [],
     bio: 'Chuyên gia Tarot 5 năm kinh nghiệm.', completedSessions: 120, totalPurchases: 150,
     acceptanceRate: 98, rating: 4.8, elo: 2450, status: 'Active',
     avatar: 'https://i.pravatar.cc/150?img=32'
@@ -71,6 +84,7 @@ const MOCK_READERS: Reader[] = [
     id: 'RD002', fullName: 'Mystic John', email: 'john@mystic.vn', account: 'john_mystic',
     phone: '0912333444', dob: '1995-08-20', joinDate: '2023-03-15', address: 'TP.HCM',
     specialty: ['Tài chính', 'Học tập'], experienceImgs: [],
+    experienceText: 'Chuyên gia chiêm tinh học.', feedbackImages: [],
     bio: 'Reader hệ Chiêm tinh học.', completedSessions: 45, totalPurchases: 60,
     acceptanceRate: 85, rating: 4.5, elo: 1850, status: 'Active',
     avatar: 'https://i.pravatar.cc/150?img=11'
@@ -79,6 +93,7 @@ const MOCK_READERS: Reader[] = [
     id: 'RD003', fullName: 'Dark Magician', email: 'dark@magic.com', account: 'dark_magic',
     phone: '0999888777', dob: '1998-12-12', joinDate: '2023-06-01', address: 'Đà Nẵng',
     specialty: ['Runes'], experienceImgs: [],
+    experienceText: 'Bậc thầy hắc ám.', feedbackImages: [],
     bio: 'Bậc thầy hắc ám.', completedSessions: 200, totalPurchases: 210,
     acceptanceRate: 100, rating: 5.0, elo: 2100, status: 'Busy',
     avatar: 'https://i.pravatar.cc/150?img=60'
@@ -90,6 +105,15 @@ const MOCK_PENDING: PendingReader[] = [
     id: 'TEMP001', fullName: 'Luna Lovegood', email: 'luna@moon.com', phone: '0988777666',
     submissionDate: '2024-02-01', testScore: 85, dob: '2000-01-01',
     specialty: ['Oracle', 'Healing'], experienceImgs: ['https://placehold.co/100'], 
+    
+    // Dữ liệu kinh nghiệm & feedback giả lập
+    experienceText: 'Em đã có 3 năm kinh nghiệm xem bài Oracle cho các bạn sinh viên và khách online. Em chuyên về chữa lành và định hướng tâm lý.',
+    feedbackImages: [
+        'https://placehold.co/300x400/fae8ff/9333ea?text=Feedback+Zalo+1',
+        'https://placehold.co/300x400/fae8ff/9333ea?text=Feedback+FB+2',
+        'https://placehold.co/300x400/fae8ff/9333ea?text=Anh+Trai+Bai'
+    ],
+
     bio: 'Tôi yêu thích việc chữa lành tâm hồn bằng bài Oracle.',
     status: 'Pending'
   },
@@ -97,6 +121,12 @@ const MOCK_PENDING: PendingReader[] = [
     id: 'TEMP002', fullName: 'Harry Potter', email: 'harry@hogwarts.com', phone: '0912345678',
     submissionDate: '2024-02-02', testScore: 92, dob: '1980-07-31',
     specialty: ['Tarot'], experienceImgs: [], 
+    
+    experienceText: 'Kinh nghiệm thực chiến 10 năm đối đầu với Hắc ám. Đã xem cho nhiều phù thủy nổi tiếng.',
+    feedbackImages: [
+        'https://placehold.co/300x400/fff1f2/be123c?text=Feedback+Ministry'
+    ],
+
     bio: 'The boy who lived.',
     status: 'Pending'
   }
@@ -172,6 +202,8 @@ export default function ReaderManagement() {
       fullName: reader.fullName, email: reader.email, account: reader.email.split('@')[0],
       phone: reader.phone, dob: reader.dob, joinDate: new Date().toISOString().split('T')[0],
       address: 'Chưa cập nhật', specialty: reader.specialty, experienceImgs: reader.experienceImgs,
+      // Chuyển data kinh nghiệm sang
+      experienceText: reader.experienceText, feedbackImages: reader.feedbackImages,
       bio: reader.bio, completedSessions: 0, totalPurchases: 0, acceptanceRate: 100,
       rating: 5.0, elo: 1200, status: 'Active', avatar: `https://ui-avatars.com/api/?name=${reader.fullName}&background=random`
     };
@@ -456,6 +488,24 @@ export default function ReaderManagement() {
                              <h4 className="font-bold text-gray-800 mb-2">Giới thiệu</h4>
                              <p className="bg-gray-50 p-4 rounded-2xl text-gray-600 text-sm italic">"{selectedReader.bio}"</p>
                         </div>
+                        
+                        {/* Hiển thị kinh nghiệm trong Detail */}
+                        {selectedReader.experienceText && (
+                            <div>
+                                <h4 className="font-bold text-gray-800 mb-2">Kinh nghiệm & Feedback</h4>
+                                <p className="bg-gray-50 p-4 rounded-2xl text-gray-600 text-sm mb-3">{selectedReader.experienceText}</p>
+                                {selectedReader.feedbackImages && selectedReader.feedbackImages.length > 0 && (
+                                    <div className="grid grid-cols-4 gap-2">
+                                        {selectedReader.feedbackImages.map((img, idx) => (
+                                            <div key={idx} className="aspect-square rounded-lg overflow-hidden border border-gray-200">
+                                                <img src={img} className="w-full h-full object-cover" alt="Feedback"/>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
+                        )}
+
                         <div className="bg-red-50 rounded-2xl p-4 border border-red-100 flex justify-between items-center">
                             <div><h4 className="font-bold text-red-800">Khóa tài khoản</h4><p className="text-xs text-red-600">Hành động này sẽ ngăn Reader truy cập.</p></div>
                             <div className="flex gap-2">
@@ -469,22 +519,68 @@ export default function ReaderManagement() {
         </div>
       )}
 
-      {/* MODAL: PENDING */}
+      {/* MODAL: PENDING - UPDATE 2: HIỂN THỊ KINH NGHIỆM & ẢNH FEEDBACK */}
       {selectedPending && (
          <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4 animate-in fade-in">
-            <div className="bg-white rounded-3xl w-full max-w-2xl max-h-[90vh] overflow-y-auto shadow-2xl p-8">
+            <div className="bg-white rounded-3xl w-full max-w-3xl max-h-[90vh] overflow-y-auto shadow-2xl p-8">
                 <div className="flex justify-between items-center mb-6">
-                    <h3 className="text-xl font-bold">Hồ sơ chờ duyệt</h3>
+                    <h3 className="text-xl font-bold flex items-center gap-2"><BadgeCheck size={24} className="text-orange-500"/> Hồ sơ chờ duyệt</h3>
                     <button onClick={() => setSelectedPending(null)}><X className="text-gray-400 hover:text-red-500"/></button>
                 </div>
-                <div className="grid grid-cols-2 gap-6 text-sm mb-6">
-                    <div><span className="text-xs text-gray-400 block">Họ tên</span><p className="font-bold text-lg">{selectedPending.fullName}</p></div>
-                    <div><span className="text-xs text-gray-400 block">Điểm Test</span><p className="font-black text-2xl text-purple-600">{selectedPending.testScore}/100</p></div>
-                    <div className="col-span-2"><span className="text-xs text-gray-400 block">Giới thiệu</span><p className="bg-gray-50 p-3 rounded-xl mt-1">{selectedPending.bio}</p></div>
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 text-sm mb-6">
+                    {/* Cột 1: Thông tin cơ bản */}
+                    <div className="space-y-4">
+                        <div className="bg-gray-50 p-4 rounded-xl border border-gray-100">
+                            <span className="text-xs text-gray-400 uppercase font-bold block mb-1">Ứng viên</span>
+                            <p className="font-bold text-lg text-slate-800">{selectedPending.fullName}</p>
+                            <p className="text-gray-500">{selectedPending.email}</p>
+                            <p className="text-gray-500">{selectedPending.phone}</p>
+                        </div>
+                        <div className="bg-purple-50 p-4 rounded-xl border border-purple-100">
+                            <span className="text-xs text-purple-400 uppercase font-bold block mb-1">Kết quả Test</span>
+                            <p className="font-black text-3xl text-purple-600">{selectedPending.testScore}<span className="text-sm font-normal text-purple-400">/100</span></p>
+                        </div>
+                        <div>
+                            <span className="text-xs text-gray-400 uppercase font-bold block mb-1">Giới thiệu bản thân</span>
+                            <p className="bg-white border border-gray-200 p-3 rounded-xl italic text-gray-600">"{selectedPending.bio}"</p>
+                        </div>
+                    </div>
+
+                    {/* Cột 2: Kinh nghiệm & Feedback (QUAN TRỌNG) */}
+                    <div className="space-y-4">
+                        <div>
+                            <span className="text-xs text-gray-400 uppercase font-bold block mb-1">Kinh nghiệm thực tế (Mô tả)</span>
+                            <div className="bg-blue-50 p-4 rounded-xl border border-blue-100 text-slate-700 leading-relaxed">
+                                {selectedPending.experienceText}
+                            </div>
+                        </div>
+
+                        <div>
+                            <span className="text-xs text-gray-400 uppercase font-bold mb-2 flex items-center gap-1">
+                                <ImageIcon size={14}/> Ảnh Feedback / Bằng chứng
+                            </span>
+                            {selectedPending.feedbackImages && selectedPending.feedbackImages.length > 0 ? (
+                                <div className="grid grid-cols-2 gap-3">
+                                    {selectedPending.feedbackImages.map((img, idx) => (
+                                        <div key={idx} className="group relative aspect-[4/3] rounded-xl overflow-hidden border border-gray-200 shadow-sm cursor-pointer">
+                                            <img src={img} className="w-full h-full object-cover transition-transform group-hover:scale-105" alt="Feedback"/>
+                                            <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors"/>
+                                        </div>
+                                    ))}
+                                </div>
+                            ) : (
+                                <div className="border-2 border-dashed border-gray-200 rounded-xl p-6 text-center text-gray-400 text-xs">
+                                    Không có ảnh feedback đính kèm.
+                                </div>
+                            )}
+                        </div>
+                    </div>
                 </div>
-                <div className="flex gap-3">
-                    <button onClick={() => handleRejectPending(selectedPending)} className="flex-1 py-3 border border-red-200 text-red-600 rounded-xl font-bold hover:bg-red-50">Từ chối</button>
-                    <button onClick={() => handleApprovePending(selectedPending)} className="flex-1 py-3 bg-slate-900 text-white rounded-xl font-bold hover:bg-slate-800">Duyệt hồ sơ</button>
+
+                <div className="flex gap-3 pt-4 border-t border-gray-100">
+                    <button onClick={() => handleRejectPending(selectedPending)} className="flex-1 py-3 border border-red-200 text-red-600 rounded-xl font-bold hover:bg-red-50 transition-colors">Từ chối</button>
+                    <button onClick={() => handleApprovePending(selectedPending)} className="flex-1 py-3 bg-slate-900 text-white rounded-xl font-bold hover:bg-slate-800 shadow-lg transition-colors">Duyệt hồ sơ</button>
                 </div>
             </div>
          </div>

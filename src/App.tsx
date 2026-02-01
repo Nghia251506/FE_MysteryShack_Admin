@@ -12,12 +12,10 @@ import SessionMonitoring from './pages/admin/SessionMonitoring';
 import ServicePackageManagement from './pages/admin/ServicePackageManagement';
 import RevenueReport from './pages/admin/RevenueReport';
 import ContentManagement from './pages/admin/ContentManagement';
-import NotificationCenter from './pages/admin/NotificationCenter'; 
-import SystemSettings from './pages/admin/SystemSettings'; // Trang Admin Accounts
-import SystemConfig from './pages/admin/SystemConfig';     // Trang Time-out/Topic/Tarot
+import NotificationCenter from './pages/admin/NotificationCenter'; // <--- IMPORT
+import SystemSettings from './pages/admin/SystemSettings';         // <--- IMPORT
 
 // --- B. CÁC TRANG CŨ (SHOP/TAROT) ---
-// *Đảm bảo đường dẫn import đúng với cấu trúc folder của bạn*
 import TarotList from './pages/tarot/TarotList';
 import TarotForm from './pages/tarot/TarotForm';
 import ProductList from './pages/products/ProductList';
@@ -44,9 +42,8 @@ function App() {
           <Route path="packages" element={<ServicePackageManagement />} />
           <Route path="revenue" element={<RevenueReport />} />
           <Route path="content" element={<ContentManagement />} />
-          <Route path="notifications" element={<NotificationCenter />} />
-          <Route path="settings" element={<SystemSettings />} />
-          <Route path="config" element={<SystemConfig />} />
+          <Route path="notifications" element={<NotificationCenter />} /> {/* <--- ROUTE MỚI */}
+          <Route path="settings" element={<SystemSettings />} />         {/* <--- ROUTE MỚI */}
 
           {/* 2. Module Cửa Hàng (Cũ) */}
           <Route path="tarot" element={<TarotList />} />

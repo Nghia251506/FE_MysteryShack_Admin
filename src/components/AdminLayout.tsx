@@ -1,11 +1,16 @@
 // @ts-nocheck
 import React, { useState } from 'react';
-import { Link, Outlet, useLocation } from 'react-router-dom';
+import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom';
+import { useDispatch } from 'react-redux';
 import { 
   LayoutDashboard, Sparkles, Menu, X, Users, BookOpen, 
   Activity, Layers, BarChart3, FileText, Bell, Settings, Sliders,
-  ChevronLeft, ChevronRight // Đã thêm
+  ChevronLeft, ChevronRight, LogOut // <-- MỚI: Import icon LogOut
 } from 'lucide-react';
+
+// --- IMPORT REDUX ---
+import { logoutUser } from '@/store/features/authSlice';
+import { AppDispatch } from '@/store/store';
 
 const menuItems = [
   { icon: LayoutDashboard, label: 'Tổng quan', path: '/admin/dashboard' },
@@ -21,15 +26,27 @@ const menuItems = [
 ];
 
 export default function AdminLayout() {
-  const [isExpanded, setIsExpanded] = useState(true); // Biến gây lỗi trắng màn hình đã được fix
+  const [isExpanded, setIsExpanded] = useState(true);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  
   const location = useLocation();
+  const navigate = useNavigate();
+  const dispatch = useDispatch<AppDispatch>();
 
   const isActive = (path) => {
     if (path === '/admin/dashboard') {
       return location.pathname === '/admin' || location.pathname === '/admin/dashboard';
     }
     return location.pathname.startsWith(path);
+  };
+
+  // --- HÀM XỬ LÝ LOGOUT ---
+  const handleLogout = async () => {
+    // 1. Gọi action Redux (để gọi API logout và xóa LocalStorage)
+    await dispatch(logoutUser());
+    
+    // 2. Chuyển hướng về trang Login
+    navigate('/login');
   };
 
   return (
@@ -86,14 +103,26 @@ export default function AdminLayout() {
           {isExpanded ? <ChevronLeft size={16} /> : <ChevronRight size={16} />}
         </button>
 
-        <div className={`p-4 border-t border-slate-800 flex items-center ${!isExpanded ? 'justify-center' : ''}`}>
-            <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-purple-500 to-pink-500 border-2 border-slate-900 flex-shrink-0"></div>
-            {isExpanded && (
-              <div className="ml-3 overflow-hidden">
-                <p className="text-xs font-medium truncate">Admin User</p>
-                <p className="text-[10px] text-slate-500 truncate">Super Admin</p>
-              </div>
-            )}
+        {/* USER PROFILE & LOGOUT SECTION */}
+        <div className={`p-4 border-t border-slate-800 flex items-center ${!isExpanded ? 'flex-col justify-center gap-4' : 'justify-between'}`}>
+            <div className={`flex items-center ${!isExpanded ? 'justify-center' : ''}`}>
+                <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-purple-500 to-pink-500 border-2 border-slate-900 flex-shrink-0"></div>
+                {isExpanded && (
+                  <div className="ml-3 overflow-hidden">
+                    <p className="text-xs font-medium truncate">Admin User</p>
+                    <p className="text-[10px] text-slate-500 truncate">Super Admin</p>
+                  </div>
+                )}
+            </div>
+
+            {/* --- NÚT ĐĂNG XUẤT --- */}
+            <button 
+                onClick={handleLogout}
+                className="p-2 rounded-lg hover:bg-red-500/10 hover:text-red-400 text-slate-400 transition-colors"
+                title="Đăng xuất"
+            >
+                <LogOut size={20} />
+            </button>
         </div>
       </aside>
 
@@ -111,7 +140,13 @@ export default function AdminLayout() {
             Tarot Admin Panel
           </h1>
           
-          <div className="w-10 h-10 bg-purple-100 rounded-full flex items-center justify-center text-purple-600 font-bold border border-purple-200">A</div>
+          <div className="flex items-center gap-4">
+             {/* Nút Logout cho Mobile (nếu cần) hoặc chỉ hiển thị Avatar */}
+             <button onClick={handleLogout} className="md:hidden text-gray-500 hover:text-red-500">
+                <LogOut size={20}/>
+             </button>
+             <div className="w-10 h-10 bg-purple-100 rounded-full flex items-center justify-center text-purple-600 font-bold border border-purple-200">A</div>
+          </div>
         </header>
 
         <main className="flex-1 overflow-x-hidden overflow-y-auto bg-slate-50/50 p-6">

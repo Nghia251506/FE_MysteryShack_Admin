@@ -1,8 +1,12 @@
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
-import App from './App.tsx';
 import { Provider } from 'react-redux';
-import { store } from './redux/store';
+
+// --- SỬA LẠI ĐƯỜNG DẪN IMPORT STORE ---
+// Thay vì '@/redux/store', hãy dùng đường dẫn mới:
+import { store } from '@/store/store'; 
+
+import App from './App.tsx';
 import './index.css';
 
 createRoot(document.getElementById('root')!).render(

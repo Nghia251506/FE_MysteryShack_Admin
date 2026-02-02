@@ -1,17 +1,18 @@
 import { configureStore } from '@reduxjs/toolkit';
-import tarotCardReducer from './tarotCardSlice';
+import authReducer from './features/authSlice';
+// Import thêm các reducer khác tại đây (VD: readerReducer, userReducer...)
 
 export const store = configureStore({
   reducer: {
-    tarotCard: tarotCardReducer,
-    // Thêm các slice khác ở đây sau này (auth, zodiac, history...)
+    auth: authReducer,
+    // readers: readerReducer,
   },
   middleware: (getDefaultMiddleware) =>
     getDefaultMiddleware({
-      serializableCheck: false,  // Tắt check nếu có Date hoặc function
+      serializableCheck: false,
     }),
 });
 
-// Type cho dispatch và state
+// Export Type để dùng cho TypeScript
 export type RootState = ReturnType<typeof store.getState>;
 export type AppDispatch = typeof store.dispatch;

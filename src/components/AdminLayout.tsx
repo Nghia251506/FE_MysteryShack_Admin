@@ -1,4 +1,3 @@
-// @ts-nocheck
 import React, { useState } from 'react';
 import { Link, Outlet, useLocation } from 'react-router-dom';
 import { 
@@ -25,7 +24,7 @@ export default function AdminLayout() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const location = useLocation();
 
-  const isActive = (path) => {
+  const isActive = (path: string) => {
     if (path === '/admin/dashboard') {
       return location.pathname === '/admin' || location.pathname === '/admin/dashboard';
     }

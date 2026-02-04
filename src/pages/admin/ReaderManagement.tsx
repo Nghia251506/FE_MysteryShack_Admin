@@ -7,7 +7,10 @@ import {
   ArrowUpRight, ArrowDownRight, BadgeCheck, Edit3, Image as ImageIcon,
   CalendarDays
 } from 'lucide-react';
-
+import { useEffect } from 'react';
+import { useAppDispatch, useAppSelector } from '../../hooks/useAppRedux'; // Hoặc đường dẫn hooks của ông
+import { fetchAllReaders } from '../../store/features/userSlice';
+import { Loader2 } from 'lucide-react';
 // --- 1. INTERFACE ---
 interface Reader {
   id: string;
@@ -62,35 +65,7 @@ interface EloLog {
 }
 
 // --- 2. MOCK DATA ---
-const MOCK_READERS: Reader[] = [
-  {
-    id: 'RD001', fullName: 'Madame Rose', email: 'rose@tarot.com', account: 'rose_tarot',
-    phone: '0909111222', dob: '1990-05-15', joinDate: '2023-01-10', address: 'Hà Nội',
-    specialty: ['Tình yêu', 'Công việc'], experienceImgs: ['https://placehold.co/100'],
-    experienceText: '5 năm kinh nghiệm xem tại quán cà phê.', feedbackImages: [],
-    bio: 'Chuyên gia Tarot 5 năm kinh nghiệm.', completedSessions: 120, totalPurchases: 150,
-    acceptanceRate: 98, rating: 4.8, elo: 2450, status: 'Active',
-    avatar: 'https://i.pravatar.cc/150?img=32'
-  },
-  {
-    id: 'RD002', fullName: 'Mystic John', email: 'john@mystic.vn', account: 'john_mystic',
-    phone: '0912333444', dob: '1995-08-20', joinDate: '2023-03-15', address: 'TP.HCM',
-    specialty: ['Tài chính', 'Học tập'], experienceImgs: [],
-    experienceText: 'Chuyên gia chiêm tinh học.', feedbackImages: [],
-    bio: 'Reader hệ Chiêm tinh học.', completedSessions: 45, totalPurchases: 60,
-    acceptanceRate: 85, rating: 4.5, elo: 1850, status: 'Active',
-    avatar: 'https://i.pravatar.cc/150?img=11'
-  },
-  {
-    id: 'RD003', fullName: 'Dark Magician', email: 'dark@magic.com', account: 'dark_magic',
-    phone: '0999888777', dob: '1998-12-12', joinDate: '2023-06-01', address: 'Đà Nẵng',
-    specialty: ['Runes'], experienceImgs: [],
-    experienceText: 'Bậc thầy hắc ám.', feedbackImages: [],
-    bio: 'Bậc thầy hắc ám.', completedSessions: 200, totalPurchases: 210,
-    acceptanceRate: 100, rating: 5.0, elo: 2100, status: 'Busy',
-    avatar: 'https://i.pravatar.cc/150?img=60'
-  }
-];
+
 
 const MOCK_PENDING: PendingReader[] = [
   {
@@ -142,10 +117,10 @@ export default function ReaderManagement() {
   const [activeTab, setActiveTab] = useState<'list' | 'pending' | 'ranking' | 'logs'>('list');
   
   // Data
-  const [readers, setReaders] = useState<Reader[]>(MOCK_READERS);
+  const { users, loading, error } = useAppSelector((state) => state.users);
   const [pendingReaders, setPendingReaders] = useState<PendingReader[]>(MOCK_PENDING);
   const [eloLogs, setEloLogs] = useState<EloLog[]>(MOCK_LOGS);
-
+  const dispatch = useAppDispatch();
   // --- FILTER STATES ---
   const [filterName, setFilterName] = useState('');
   const [filterStatus, setFilterStatus] = useState('All');
@@ -163,13 +138,13 @@ export default function ReaderManagement() {
   const [eloAdjustment, setEloAdjustment] = useState({ change: 0, reason: '' });
   const [lockDuration, setLockDuration] = useState('7');
 
+  useEffect(() => {
+    dispatch(fetchAllReaders());
+  }, [dispatch]);
   // --- LOGIC: FILTER ---
   const filteredReaders = useMemo(() => {
-    return readers.filter(r => {
-      // 1. Tên
-      const matchName = r.fullName.toLowerCase().includes(filterName.toLowerCase());
-      
-      // 2. Trạng thái
+    return (users || []).filter(r => {
+      const matchName = r.fullName?.toLowerCase().includes(filterName.toLowerCase());
       const matchStatus = filterStatus === 'All' ? true : r.status === filterStatus;
 
       // 3. Elo Range
@@ -188,7 +163,7 @@ export default function ReaderManagement() {
 
       return matchName && matchStatus && matchElo && matchDate;
     });
-  }, [readers, filterName, filterStatus, filterEloMin, filterEloMax, filterDateFrom, filterDateTo]);
+  }, [users, filterName, filterStatus, filterEloMin, filterEloMax, filterDateFrom, filterDateTo]);
 
   const handleCheckAll = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.checked) setSelectedIds(new Set(filteredReaders.map(r => r.id)));
@@ -227,7 +202,7 @@ export default function ReaderManagement() {
       bio: reader.bio, completedSessions: 0, totalPurchases: 0, acceptanceRate: 100,
       rating: 5.0, elo: 1200, status: 'Active', avatar: `https://ui-avatars.com/api/?name=${reader.fullName}&background=random`
     };
-    setReaders([...readers, newReader]);
+    // setReaders([...readers, newReader]);
     setPendingReaders(pendingReaders.filter(p => p.id !== reader.id));
     setSelectedPending(null);
   };

@@ -1,10 +1,11 @@
 import axios from 'axios';
 
 // --- QUAN TRỌNG: Để '/api' để request đi qua Proxy trong vite.config.ts ---
-const BASE_URL = '/api'; 
+const BASE_URL = import.meta.env.VITE_API_URL ? `${import.meta.env.VITE_API_URL}/api` : 'http://localhost:8080/api'; 
 
 const axiosInstance = axios.create({
   baseURL: BASE_URL,
+  withCredentials: true,
   headers: {
     'Content-Type': 'application/json',
   },

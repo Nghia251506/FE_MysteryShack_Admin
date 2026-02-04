@@ -1,4 +1,3 @@
-// @ts-nocheck
 import React, { useState } from 'react';
 import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { useDispatch } from 'react-redux';
@@ -11,6 +10,7 @@ import {
 // --- IMPORT REDUX ---
 import { logoutUser } from '@/store/features/authSlice';
 import { AppDispatch } from '@/store/store';
+import { ToastContainer } from 'react-toastify';
 
 const menuItems = [
   { icon: LayoutDashboard, label: 'Tổng quan', path: '/admin/dashboard' },
@@ -52,6 +52,7 @@ export default function AdminLayout() {
   return (
     <div className="flex h-screen bg-gray-50 font-sans">
       {/* SIDEBAR */}
+      <ToastContainer/>
       <aside 
         className={`hidden md:flex flex-col bg-slate-900 text-white relative z-20 shadow-xl transition-all duration-300 ${
           isExpanded ? 'w-64' : 'w-20'

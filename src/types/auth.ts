@@ -1,31 +1,35 @@
+// Dữ liệu User trả về sau khi Login thành công
 export interface User {
-  id: string | number;
+  isActive: boolean;
+  profilePicture: string;
+  id: number;
   username: string;
   email: string;
-  fullName?: string;
-  role: 'ADMIN' | 'READER' | 'USER' | 'CUSTOMER';
-  avatar?: string;
-  phone?: string;
-  birthDate?: string;
+  fullName: string;
+  birthDate?: string; // <--- THÊM DÒNG NÀY: Để lưu và hiển thị ở trang Profile
+  role: 'CUSTOMER' | 'READER' | 'ADMIN';
+  token?: string; // JWT Token
 }
 
-export interface AuthResponse {
-  accessToken: string;
-  refreshToken?: string;
-  user: User;
-}
-
+// Payload gửi lên khi Đăng nhập
 export interface LoginRequest {
   username: string;
-  passwordHash: string; // <-- Đã đổi thành passwordHash
+  passwordHash: string; 
 }
 
+// Payload gửi lên khi Đăng ký
 export interface RegisterRequest {
   username: string;
+  passwordHash: string;
   email: string;
-  passwordHash: string; // <-- Đã đổi thành passwordHash
   fullName: string;
-  phone: string;
-  birthDate: string;
-  role: string;
+  birthDate: string; // <--- THÊM DÒNG NÀY: Để fix lỗi gạch đỏ ở trang Register
+  role: 'CUSTOMER' | 'READER';
+}
+
+// Response chuẩn từ Auth API
+export interface AuthResponse {
+  token: string;
+  user: User;
+  message?: string;
 }

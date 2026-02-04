@@ -19,7 +19,7 @@ const PrivateRoute: React.FC<PrivateRouteProps> = ({ children, requiredRole }) =
   // 2. Check Role (CHỈ CHECK NẾU CÓ TRUYỀN requiredRole)
   // Nếu bên App.tsx không truyền requiredRole thì đoạn này sẽ được bỏ qua -> Cho phép tất cả
   if (requiredRole && user?.role !== requiredRole) {
-    alert("Bạn không có quyền truy cập!");
+    // alert("Bạn không có quyền truy cập!");
     return <Navigate to="/login" replace />;
   }
 

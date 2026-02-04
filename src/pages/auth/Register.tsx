@@ -8,6 +8,7 @@ import { Eye, EyeOff, Loader2, Lock, User, Mail, UserCheck, Phone, Calendar } fr
 
 import { AppDispatch, RootState } from '@/store/store';
 import { registerUser, resetError } from '@/store/features/authSlice';
+import { toast } from 'react-toastify';
 
 // Schema giữ nguyên
 const registerSchema = z.object({
@@ -49,15 +50,15 @@ export default function Register() {
       email: data.email,
       fullName: data.fullName,
       // QUAN TRỌNG: Đổi key thành passwordHash
-      passwordHash: data.password, 
+      password: data.password, 
       phone: data.phone,
       birthDate: `${data.birthDate}T00:00:00Z`, 
-      role: 'ADMIN'
+      role: ""
     };
 
     try {
       await dispatch(registerUser(payload as any)).unwrap();
-      alert("Đăng ký thành công! Vui lòng đăng nhập để tiếp tục.");
+      toast.success("Đăng ký thành công! Vui lòng đăng nhập để tiếp tục.");
       navigate('/login');
     } catch (err) {
       console.error("Đăng ký thất bại:", err);

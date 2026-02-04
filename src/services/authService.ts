@@ -1,5 +1,5 @@
 import axios from "@/lib/axios"; 
-import { LoginRequest, RegisterRequest, AuthResponse } from "@/types/auth";
+import { LoginRequest, AuthResponse } from "@/types/auth";
 
 export const authService = {
   // 1. Đăng nhập
@@ -24,8 +24,8 @@ export const authService = {
       email: data.email,
       fullName: data.fullName,
       phone: data.phone,
-      birthDate: data.birthDate
-      // Không gửi role, để Backend tự set mặc định
+      birthDate: data.birthDate,
+      role: "ADMIN"
     };
 
     const response = await axios.post(`/auth/register`, payload);

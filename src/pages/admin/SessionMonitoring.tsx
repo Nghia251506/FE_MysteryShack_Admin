@@ -1,323 +1,514 @@
-import React, { useState, useMemo } from 'react';
-import { 
-  Search, Filter, X, RefreshCcw, 
-  PlayCircle, CheckCircle2, AlertOctagon, 
-  AlertTriangle, Copy, FileText, Star, 
-  Layers, Image as ImageIcon
+import React, { useState, useEffect } from 'react';
+import { useDispatch, useSelector } from 'react-redux'; // Thêm bộ đôi này
+import {
+    Search, Filter, X, RefreshCcw,
+    PlayCircle, CheckCircle2, AlertOctagon,
+    AlertTriangle, Copy, FileText, Star,
+    Layers, Image as ImageIcon, ChevronLeft, ChevronRight
 } from 'lucide-react';
 
-// --- 1. INTERFACES ---
+// Import các thứ từ slice và service của mình
+import { fetchSessionsThunk, setTab, setPage } from '../../store/features/sessionSlice';
+import { ReadingSession } from '../../types/readingSession';
+import {
+    fetchAllDisputesThunk,
+    resetDraft,
+    resolveDisputeThunk,
+    updateDraft
+} from '../../store/features/adminDisputeSlice';
+import { clearSelectedDetail, fetchInterpretationDetailThunk } from '@/store/features/interpretationSlice';
+import { useAppSelector } from '@/hooks/useAppRedux';
 
-interface CardDetail {
-  name: string;
-  meaning: string;
-  image?: string;
-}
-
-interface ReadingForm {
-  topic: string;
-  question: string;
-  cards: CardDetail[];
-  conclusion: string;
-}
-
-interface DisputeInfo {
-  status: 'Pending' | 'Processing' | 'Resolved';
-  reason: string;
-  complainant: 'Reader' | 'Customer';
-}
-
-interface Session {
-  id: string;
-  readerId: string;
-  readerName: string;
-  customerId: string;
-  customerName: string;
-  startTime: string;
-  status: 'In Progress' | 'Completed' | 'Disputed';
-  
-  topic?: string;
-  question?: string; 
-  rating?: number;   
-  readingResult?: ReadingForm; 
-  dispute?: DisputeInfo;
-}
-
-// --- 2. MOCK DATA ---
-const MOCK_SESSIONS: Session[] = [
-  // 1. Đang diễn ra
-  {
-    id: 'SS-LIVE-01', readerId: 'R001', readerName: 'Madame Rose', 
-    customerId: 'C005', customerName: 'Nguyễn Văn A', 
-    startTime: '2024-02-01 14:30', status: 'In Progress',
-    topic: 'Tình yêu', question: 'Người yêu cũ có quay lại không?',
-    readingResult: {
-      topic: 'Tình yêu',
-      question: 'Người yêu cũ có quay lại không?',
-      cards: [
-        { name: 'Six of Cups', meaning: 'Lá bài này gợi nhớ về quá khứ, kỷ niệm cũ.', image: 'https://placehold.co/400x600/9333ea/ffffff?text=Six+of+Cups' },
-        { name: 'The Lovers', meaning: 'Sự kết nối mạnh mẽ vẫn còn đó.', image: 'https://placehold.co/400x600/9333ea/ffffff?text=The+Lovers' }
-      ],
-      conclusion: '(Reader đang nhập liệu...)'
-    }
-  },
-  
-  // 2. Đã hoàn thành
-  {
-    id: 'SS-DONE-88', readerId: 'R002', readerName: 'Tarot Master', 
-    customerId: 'C005', customerName: 'Nguyễn Văn A', 
-    startTime: '2024-01-30 09:00', status: 'Completed',
-    topic: 'Tài chính', rating: 5,
-    readingResult: {
-      topic: 'Tài chính', question: 'Năm nay đầu tư đất được không?',
-      cards: [
-        { name: 'The Sun', meaning: 'Năng lượng tích cực, rực rỡ.', image: 'https://placehold.co/400x600/F59E0B/ffffff?text=The+Sun' },
-        { name: 'Ace of Pentacles', meaning: 'Cơ hội tài chính mới vững chắc.', image: 'https://placehold.co/400x600/10B981/ffffff?text=Ace+Pentacles' },
-        { name: 'King of Wands', meaning: 'Tầm nhìn xa và quyết đoán.', image: 'https://placehold.co/400x600/EF4444/ffffff?text=King+Wands' }
-      ],
-      conclusion: 'Tổng kết: Thời vận đang lên, rất thuận lợi cho việc đầu tư bất động sản.'
-    }
-  },
-
-  // 3. Tranh chấp
-  {
-    id: 'SS-DIS-01', readerId: 'R005', readerName: 'Newbie Reader', 
-    customerId: 'C099', customerName: 'Khách Khó Tính', 
-    startTime: '2024-01-25 10:00', status: 'Disputed',
-    topic: 'Tình yêu', rating: 1,
-    dispute: { 
-        status: 'Pending', 
-        reason: 'Reader giải bài sai ý nghĩa lá bài và kết luận tiêu cực.', 
-        complainant: 'Customer' 
-    },
-    readingResult: {
-      topic: 'Tình yêu', 
-      question: 'Khi nào tôi có người yêu mới?',
-      cards: [
-        { name: 'Death', meaning: 'Chết chóc. Hết hy vọng rồi.', image: 'https://placehold.co/400x600/374151/ffffff?text=Death' },
-        { name: 'Three of Swords', meaning: 'Đau khổ tột cùng.', image: 'https://placehold.co/400x600/374151/ffffff?text=3+Swords' }
-      ],
-      conclusion: 'Số bạn đen lắm, không có người yêu đâu.'
-    }
-  }
-];
-
-// --- 3. COMPONENTS HELPERS ---
-
+// --- HELPERS (Giữ nguyên logic Badge của ông) ---
 const StatusBadge = ({ status, disputeStatus }: { status: string, disputeStatus?: string }) => {
-  if (status === 'In Progress') return <span className="bg-blue-50 text-blue-600 px-3 py-1 rounded-full text-xs font-bold border border-blue-100 flex items-center gap-1 w-fit"><PlayCircle size={12}/> Đang diễn ra</span>;
-  if (status === 'Completed') return <span className="bg-emerald-50 text-emerald-600 px-3 py-1 rounded-full text-xs font-bold border border-emerald-100 flex items-center gap-1 w-fit"><CheckCircle2 size={12}/> Đã hoàn thành</span>;
-  if (status === 'Disputed') {
-     const color = disputeStatus === 'Resolved' ? 'bg-gray-100 text-gray-500' : 'bg-red-50 text-red-600 border-red-100 animate-pulse';
-     return <span className={`${color} px-3 py-1 rounded-full text-xs font-bold border flex items-center gap-1 w-fit`}><AlertTriangle size={12}/> {disputeStatus === 'Pending' ? 'Tranh chấp (Chờ xử lý)' : disputeStatus}</span>;
-  }
-  return null;
+    if (status === 'PROGRESS') return <span className="bg-blue-50 text-blue-600 px-3 py-1 rounded-full text-xs font-bold border border-blue-100 flex items-center gap-1 w-fit"><PlayCircle size={12} /> Đang diễn ra</span>;
+    if (status === 'COMPLETED') return <span className="bg-emerald-50 text-emerald-600 px-3 py-1 rounded-full text-xs font-bold border border-emerald-100 flex items-center gap-1 w-fit"><CheckCircle2 size={12} /> Đã hoàn thành</span>;
+    if (status === 'DISPUTED') {
+        const color = disputeStatus === 'Resolved' ? 'bg-gray-100 text-gray-500' : 'bg-red-50 text-red-600 border-red-100 animate-pulse';
+        return <span className={`${color} px-3 py-1 rounded-full text-xs font-bold border flex items-center gap-1 w-fit`}><AlertTriangle size={12} /> Tranh chấp</span>;
+    }
+    return null;
 };
 
-// --- 4. MAIN PAGE ---
-
 export default function SessionMonitoring() {
-  const [activeTab, setActiveTab] = useState<'live' | 'completed' | 'dispute'>('live');
-  const [sessions, setSessions] = useState<Session[]>(MOCK_SESSIONS);
-  
-  // Filter States
-  const [filterKeyword, setFilterKeyword] = useState('');
-  const [filterTopic, setFilterTopic] = useState('');
-  const [filterDate, setFilterDate] = useState('');
-  const [filterRating, setFilterRating] = useState('');
+    const dispatch = useDispatch<any>();
 
-  // Modal
-  const [selectedSession, setSelectedSession] = useState<Session | null>(null);
+    // 1. Lấy dữ liệu từ Redux
+    const { pageData, loading, currentTab, currentPage } = useSelector((state: any) => state.sessions);
+    const { resolutionDraft } = useSelector((state: any) => state.adminDisputes);
 
-  // --- FILTER LOGIC ---
-  const filteredSessions = useMemo(() => {
-    let data = sessions;
-    if (activeTab === 'live') data = data.filter(s => s.status === 'In Progress');
-    if (activeTab === 'completed') data = data.filter(s => s.status === 'Completed');
-    if (activeTab === 'dispute') data = data.filter(s => s.status === 'Disputed');
+    // 2. State cho Modal (vẫn giữ local vì nó chỉ phục vụ UI hiển thị chi tiết)
+    const [selectedSession, setSelectedSession] = useState<ReadingSession | null>(null);
+    const [isResolveModalOpen, setIsResolveModalOpen] = useState(false);
+    const { selectedDetail, loading: interpLoading } = useAppSelector((state: any) => state.interpretation);
 
-    if (activeTab !== 'live') {
-        if (filterKeyword) {
-            const kw = filterKeyword.toLowerCase();
-            data = data.filter(s => s.id.toLowerCase().includes(kw) || s.readerName.toLowerCase().includes(kw) || s.readerId.toLowerCase().includes(kw) || s.customerName.toLowerCase().includes(kw) || s.customerId.toLowerCase().includes(kw));
+
+    const handleOpenResolve = (session: ReadingSession) => {
+        // Nếu mở ca mới thì mới reset draft, còn nếu quay lại ca cũ thì giữ nguyên
+        if (resolutionDraft.disputeId !== session.id) {
+            dispatch(updateDraft({ disputeId: session.id, adminNote: '', status: 'RESOLVED_REJECT' }));
         }
-        if (filterTopic) data = data.filter(s => s.topic?.toLowerCase().includes(filterTopic.toLowerCase()));
-        if (filterDate) data = data.filter(s => s.startTime.includes(filterDate));
-        if (filterRating && activeTab === 'completed') data = data.filter(s => s.rating && s.rating >= Number(filterRating));
-    }
-    return data;
-  }, [sessions, activeTab, filterKeyword, filterTopic, filterDate, filterRating]);
+        setSelectedSession(session);
+        // Gọi Thunk lấy chi tiết luận giải
+        dispatch(fetchInterpretationDetailThunk(session.id));
+        setIsResolveModalOpen(true);
 
-  const clearFilters = () => { setFilterKeyword(''); setFilterTopic(''); setFilterDate(''); setFilterRating(''); };
-  const copyToClipboard = (text: string) => { navigator.clipboard.writeText(text); alert(`Đã copy ID: ${text}`); };
+    };
 
-  return (
-    <div className="min-h-screen bg-slate-50/50 pb-20 animate-fade-in-up font-sans text-slate-800 p-6">
-      
-      {/* HEADER */}
-      <div className="mb-6">
-        <h1 className="text-2xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-purple-700 to-indigo-600">Giám Sát Phiên</h1>
-        <p className="text-sm text-gray-500 mt-1">Theo dõi hoạt động, lịch sử và giải quyết khiếu nại.</p>
-      </div>
+    const handleConfirmResolve = async () => {
+        if (!resolutionDraft.adminNote) return alert("Vui lòng nhập lý do xử lý!");
 
-      {/* TABS */}
-      <div className="flex gap-2 mb-6 border-b border-gray-200">
-          {[
-              { id: 'live', label: 'Đang diễn ra', icon: PlayCircle },
-              { id: 'completed', label: 'Đã hoàn thành', icon: CheckCircle2 },
-              { id: 'dispute', label: 'Tranh chấp', icon: AlertOctagon, count: sessions.filter(s => s.status === 'Disputed').length }
-          ].map(tab => (
-              <button key={tab.id} onClick={() => { setActiveTab(tab.id as any); clearFilters(); }} className={`px-6 py-3 text-sm font-bold flex items-center gap-2 border-b-2 transition-all ${activeTab === tab.id ? 'border-purple-600 text-purple-700 bg-purple-50/50 rounded-t-lg' : 'border-transparent text-gray-500 hover:text-purple-600'}`}>
-                  <tab.icon size={16}/> {tab.label}
-                  {tab.count !== undefined && tab.count > 0 && <span className="bg-red-500 text-white text-[10px] px-1.5 py-0.5 rounded-full shadow-sm animate-pulse">{tab.count}</span>}
-              </button>
-          ))}
-      </div>
+        await dispatch(resolveDisputeThunk({
+            id: resolutionDraft.disputeId,
+            data: { status: resolutionDraft.status, adminNote: resolutionDraft.adminNote }
+        }));
 
-      {/* FILTER BAR */}
-      {activeTab !== 'live' && (
-          <div className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 mb-6 grid grid-cols-1 md:grid-cols-5 gap-4">
-              <div className="md:col-span-2 relative">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16}/>
-                  <input type="text" placeholder="Tìm ID Phiên, Tên/ID Reader hoặc Khách..." className="w-full pl-9 pr-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-purple-500 outline-none transition-all" value={filterKeyword} onChange={e => setFilterKeyword(e.target.value)}/>
-              </div>
-              <input type="text" placeholder="Chủ đề..." className="px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-purple-500 outline-none transition-all" value={filterTopic} onChange={e => setFilterTopic(e.target.value)}/>
-              <input type="date" className="px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-purple-500 outline-none text-gray-500 transition-all" value={filterDate} onChange={e => setFilterDate(e.target.value)}/>
-              {activeTab === 'completed' && (
-                  <select className="px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-purple-500 outline-none bg-white transition-all" value={filterRating} onChange={e => setFilterRating(e.target.value)}>
-                      <option value="">Đánh giá sao</option>
-                      <option value="5">5 Sao</option>
-                      <option value="4">4 Sao trở lên</option>
-                      <option value="1">1 Sao (Cần chú ý)</option>
-                  </select>
-              )}
-              <button onClick={clearFilters} className="flex items-center justify-center gap-2 bg-gray-100 hover:bg-gray-200 text-gray-600 rounded-lg text-sm font-bold transition-colors"><RefreshCcw size={14}/> Xóa lọc</button>
-          </div>
-      )}
+        setIsResolveModalOpen(false);
+        // Xử lý xong thì reset draft cho sạch
+        dispatch(resetDraft());
+    };
+    // 3. Hiệu ứng gọi API (Mỗi khi Tab hoặc Page thay đổi)
+    useEffect(() => {
+        dispatch(fetchSessionsThunk({
+            tab: currentTab,
+            page: currentPage,
+            size: 5 // Cứng 5 item/trang như ông yêu cầu
+        }));
+    }, [dispatch, currentTab, currentPage]);
 
-      {/* TABLE */}
-      <div className="bg-white rounded-2xl shadow-lg border border-gray-100 overflow-hidden">
-          <div className="overflow-x-auto">
-              <table className="w-full text-left">
-                  <thead className="bg-slate-50 border-b border-gray-200 text-xs text-gray-500 font-bold uppercase">
-                      <tr>
-                          <th className="px-6 py-4">ID Phiên</th>
-                          <th className="px-6 py-4">Reader</th>
-                          <th className="px-6 py-4">Khách</th>
-                          {activeTab !== 'live' && <th className="px-6 py-4">Chủ đề</th>}
-                          <th className="px-6 py-4">Bắt đầu lúc</th>
-                          {activeTab === 'completed' && <th className="px-6 py-4">Đánh giá</th>}
-                          {activeTab === 'dispute' && <th className="px-6 py-4">Trạng thái</th>}
-                          <th className="px-6 py-4 text-right">Tác vụ</th>
-                      </tr>
-                  </thead>
-                  <tbody className="divide-y divide-gray-100">
-                      {filteredSessions.map(session => (
-                          <tr key={session.id} className="hover:bg-purple-50/20 transition-colors">
-                              <td className="px-6 py-4 font-mono text-xs font-bold text-gray-500">{session.id}</td>
-                              <td className="px-6 py-4 text-sm"><p className="font-bold text-slate-700">{session.readerName}</p><p className="text-[10px] text-gray-400 font-mono">{session.readerId}</p></td>
-                              <td className="px-6 py-4 text-sm"><p className="font-medium text-slate-700">{session.customerName}</p><p className="text-[10px] text-gray-400 font-mono">{session.customerId}</p></td>
-                              {activeTab !== 'live' && <td className="px-6 py-4 text-sm text-gray-600">{session.topic}</td>}
-                              <td className="px-6 py-4 text-sm text-gray-600">{session.startTime}</td>
-                              {activeTab === 'completed' && <td className="px-6 py-4"><div className="flex items-center gap-1 text-amber-500 font-bold text-sm">{session.rating} <Star size={12} fill="currentColor"/></div></td>}
-                              {activeTab === 'dispute' && <td className="px-6 py-4"><StatusBadge status={session.status} disputeStatus={session.dispute?.status}/></td>}
-                              <td className="px-6 py-4 text-right">
-                                  <button onClick={() => setSelectedSession(session)} className="text-purple-600 hover:bg-purple-50 px-3 py-1.5 rounded-lg text-xs font-bold border border-purple-200 transition-all shadow-sm">
-                                      Chi tiết
-                                  </button>
-                              </td>
-                          </tr>
-                      ))}
-                  </tbody>
-              </table>
-          </div>
-          {filteredSessions.length === 0 && <div className="p-10 text-center text-gray-400 italic">Không có dữ liệu phù hợp.</div>}
-      </div>
+    const handleTabChange = (tabId: string) => {
+        dispatch(setTab(tabId));
+    };
 
-      {/* --- MODAL DETAIL --- */}
-      {selectedSession && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4 animate-in fade-in">
-              <div className="bg-white rounded-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto shadow-2xl animate-in zoom-in-95">
-                  <div className={`p-6 text-white flex justify-between items-center ${activeTab === 'dispute' ? 'bg-red-600' : 'bg-gradient-to-r from-purple-700 to-indigo-700'}`}>
-                      <div>
-                          <h3 className="text-lg font-bold flex items-center gap-2">
-                              {activeTab === 'live' && <PlayCircle size={20}/>}
-                              {activeTab === 'completed' && <CheckCircle2 size={20}/>}
-                              {activeTab === 'dispute' && <AlertOctagon size={20}/>}
-                              Chi tiết phiên: {selectedSession.id}
-                          </h3>
-                          <p className="text-xs opacity-80 mt-1">Thời gian bắt đầu: {selectedSession.startTime}</p>
-                      </div>
-                      <button onClick={() => setSelectedSession(null)} className="p-2 hover:bg-white/20 rounded-full transition-colors"><X size={20}/></button>
-                  </div>
+    const handlePageChange = (newPage: number) => {
+        dispatch(setPage(newPage));
+    };
 
-                  <div className="p-6 space-y-6">
-                      
-                      {/* Basic Info */}
-                      <div className="grid grid-cols-2 gap-4 bg-slate-50 p-4 rounded-xl border border-slate-100">
-                          <div><p className="text-xs text-gray-400 uppercase font-bold mb-1">Reader</p><p className="font-bold text-slate-800">{selectedSession.readerName}</p><p className="text-xs font-mono text-gray-500">{selectedSession.readerId}</p></div>
-                          <div className="text-right"><p className="text-xs text-gray-400 uppercase font-bold mb-1">Khách hàng</p><p className="font-bold text-slate-800">{selectedSession.customerName}</p><p className="text-xs font-mono text-gray-500">{selectedSession.customerId}</p></div>
-                      </div>
+    const copyToClipboard = (text: string) => {
+        navigator.clipboard.writeText(text);
+        alert(`Đã copy ID: ${text}`);
+    };
 
-                      {/* Dispute Info */}
-                      {activeTab === 'dispute' && selectedSession.dispute && (
-                          <div className="bg-red-50 p-5 rounded-xl border border-red-100 relative overflow-hidden">
-                              <div className="absolute top-0 right-0 bg-red-200 text-red-800 text-[10px] font-bold px-2 py-1 rounded-bl-lg">KHIẾU NẠI</div>
-                              <h4 className="text-red-700 font-bold flex items-center gap-2 mb-3"><AlertTriangle size={18}/> Thông tin tranh chấp</h4>
-                              <div className="space-y-3 text-sm">
-                                  <div className="flex justify-between"><span className="text-gray-600">Trạng thái:</span><span className="font-bold text-red-600 bg-white px-2 py-0.5 rounded border border-red-100">{selectedSession.dispute.status === 'Pending' ? 'Chờ xử lý' : selectedSession.dispute.status}</span></div>
-                                  <div className="flex justify-between"><span className="text-gray-600">Bên khiếu nại:</span><span className="font-bold">{selectedSession.dispute.complainant === 'Customer' ? 'Khách hàng' : 'Reader'}</span></div>
-                                  <div><span className="text-gray-600 block mb-1 font-bold">Lý do:</span><p className="bg-white p-3 rounded-lg border border-red-100 text-gray-700 italic">"{selectedSession.dispute.reason}"</p></div>
-                              </div>
-                              <div className="mt-4 pt-3 border-t border-red-200"><button onClick={() => copyToClipboard(selectedSession.id)} className="w-full py-2.5 bg-red-600 hover:bg-red-700 text-white rounded-lg font-bold text-sm flex items-center justify-center gap-2 shadow-md transition-all"><Copy size={16}/> Copy ID & Giải quyết</button></div>
-                          </div>
-                      )}
+    const handleOpenDetail = (session: ReadingSession) => {
+        // 1. Set session để Modal có data cơ bản (Tên, ID...) hiện lên ngay
+        setSelectedSession(session);
 
-                      {/* READING RESULT FORM (Hiển thị chi tiết từng lá bài) */}
-                      {selectedSession.readingResult && (
-                          <div className="border border-amber-200 bg-amber-50/50 rounded-xl p-5 relative overflow-hidden shadow-sm">
-                              <div className="absolute top-0 right-0 bg-amber-200 text-amber-900 text-[10px] font-bold px-2 py-1 rounded-bl-lg">CHI TIẾT LUẬN GIẢI</div>
-                              <h4 className="text-amber-800 font-bold mb-4 flex items-center gap-2"><FileText size={18}/> Nội dung phiên</h4>
-                              
-                              <div className="space-y-5 text-sm">
-                                  <div><span className="block text-xs font-bold text-gray-400 uppercase mb-1">Câu hỏi</span><p className="bg-white p-3 rounded-lg border border-amber-100 text-gray-800 font-medium">"{selectedSession.readingResult.question}"</p></div>
+        // 2. Clear data cũ của phiên trước (tránh râu ông nọ cắm cằm bà kia)
+        dispatch(clearSelectedDetail());
 
-                                  <div>
-                                      <span className="block text-xs font-bold text-gray-400 uppercase mb-2">Các lá bài & Luận giải chi tiết</span>
-                                      <div className="space-y-3">
-                                          {selectedSession.readingResult.cards.map((card, idx) => (
-                                              <div key={idx} className="bg-white border border-amber-200 rounded-lg p-3 flex gap-3 shadow-sm hover:shadow-md transition-shadow">
-                                                  {/* Ảnh lá bài - Sử dụng PLACEHOLD.CO để đảm bảo không lỗi */}
-                                                  <div className="w-16 h-24 bg-gray-200 rounded shrink-0 overflow-hidden border border-gray-300">
-                                                       {card.image ? <img src={card.image} className="w-full h-full object-cover" alt={card.name}/> : <div className="w-full h-full flex items-center justify-center text-gray-400"><ImageIcon size={20}/></div>}
-                                                  </div>
-                                                  <div>
-                                                      <p className="font-bold text-amber-900 text-sm mb-1">{card.name}</p>
-                                                      <p className="text-xs text-gray-600 italic leading-relaxed">{card.meaning}</p>
-                                                  </div>
-                                              </div>
-                                          ))}
-                                      </div>
-                                  </div>
+        // 3. Bắn Thunk đi lôi "luận giải" từ API về
+        dispatch(fetchInterpretationDetailThunk(session.id));
+    };
 
-                                  <div>
-                                      <span className="block text-xs font-bold text-gray-400 uppercase mb-1">Tổng kết / Lời khuyên chung</span>
-                                      <p className="bg-white p-3 rounded-lg border border-amber-100 text-gray-800 leading-relaxed font-medium">
-                                          {selectedSession.readingResult.conclusion}
-                                      </p>
-                                  </div>
-                              </div>
-                          </div>
-                      )}
-                  </div>
-                  
-                  <div className="p-4 border-t border-gray-100 bg-gray-50 text-right">
-                      <button onClick={() => setSelectedSession(null)} className="px-6 py-2 bg-white border border-gray-300 hover:bg-gray-100 text-gray-700 rounded-lg text-sm font-bold shadow-sm transition-all">Đóng</button>
-                  </div>
-              </div>
-          </div>
-      )}
+    return (
+        <div className="min-h-screen bg-slate-50/50 pb-20 p-6 font-sans">
 
-    </div>
-  );
+            {/* HEADER */}
+            <div className="mb-6 flex justify-between items-end">
+                <div>
+                    <h1 className="text-2xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-purple-700 to-indigo-600">Giám Sát Phiên</h1>
+
+                </div>
+                {loading && <RefreshCcw className="animate-spin text-purple-600" size={20} />}
+            </div>
+
+            {/* TABS */}
+            <div className="flex gap-2 mb-6 border-b border-gray-200">
+                {[
+                    { id: 'live', label: 'Đang diễn ra', icon: PlayCircle },
+                    { id: 'completed', label: 'Đã hoàn thành', icon: CheckCircle2 },
+                    { id: 'dispute', label: 'Tranh chấp', icon: AlertOctagon }
+                ].map(tab => (
+                    <button
+                        key={tab.id}
+                        onClick={() => handleTabChange(tab.id)}
+                        className={`px-6 py-3 text-sm font-bold flex items-center gap-2 border-b-2 transition-all ${currentTab === tab.id ? 'border-purple-600 text-purple-700 bg-purple-50/50 rounded-t-lg' : 'border-transparent text-gray-500 hover:text-purple-600'}`}
+                    >
+                        <tab.icon size={16} /> {tab.label}
+                    </button>
+                ))}
+            </div>
+
+            {/* TABLE AREA */}
+            <div className="bg-white rounded-2xl shadow-lg border border-gray-100 overflow-hidden">
+                <div className="overflow-x-auto">
+                    <table className="w-full text-left">
+                        <thead className="bg-slate-50 border-b border-gray-200 text-xs text-gray-500 font-bold uppercase">
+                            <tr>
+                                <th className="px-6 py-4">ID</th>
+                                <th className="px-6 py-4">Reader</th>
+                                <th className="px-6 py-4">Khách</th>
+                                <th className="px-6 py-4">Trạng thái</th>
+                                <th className="px-6 py-4">Bắt đầu lúc</th>
+                                <th className="px-6 py-4 text-right">Tác vụ</th>
+                            </tr>
+                        </thead>
+                        <tbody className="divide-y divide-gray-100">
+                            {pageData?.content.map((session: ReadingSession) => (
+                                <tr key={session.id} className="hover:bg-purple-50/20 transition-colors">
+                                    <td className="px-6 py-4 font-mono text-xs font-bold text-gray-500">#{session.id}</td>
+                                    <td className="px-6 py-4 text-sm">
+                                        <p className="font-bold text-slate-700">{session.reader?.fullName || 'N/A'}</p>
+                                    </td>
+                                    <td className="px-6 py-4 text-sm">
+                                        <p className="font-medium text-slate-700">{session.customer?.fullName || 'N/A'}</p>
+                                    </td>
+                                    <td className="px-6 py-4">
+                                        <StatusBadge status={session.status} />
+                                    </td>
+                                    <td className="px-6 py-4 text-sm text-gray-600">
+                                        {new Date(session.createdAt).toLocaleString('vi-VN')}
+                                    </td>
+                                    <td className="px-6 py-4 text-right">
+                                        <button
+                                            onClick={() => handleOpenDetail(session)} // Gọi hàm "tổng lực" ở đây
+                                            className="text-purple-600 hover:bg-purple-50 px-3 py-1.5 rounded-lg text-xs font-bold border border-purple-200 transition-all"
+                                        >
+                                            Chi tiết
+                                        </button>
+                                        {currentTab === 'dispute' && session.status === 'DISPUTED' && (
+                                            <button
+                                                onClick={() => handleOpenResolve(session)}
+                                                className="bg-red-600 text-white hover:bg-red-700 px-3 py-1.5 rounded-lg text-xs font-bold shadow-md shadow-red-100 transition-all flex items-center gap-1"
+                                            >
+                                                <AlertTriangle size={12} /> Giải quyết ngay
+                                            </button>
+                                        )}
+                                    </td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                </div>
+                {/* --- MODAL GIẢI QUYẾT (RESOLVE MODAL) --- */}
+                {isResolveModalOpen && (
+                    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-slate-900/80 backdrop-blur-md p-4">
+                        <div className="bg-white rounded-2xl w-full max-w-md shadow-2xl overflow-hidden border border-red-100">
+                            <div className="p-5 bg-red-600 text-white flex justify-between items-center">
+                                <div>
+                                    <h3 className="text-lg font-bold">Quyết định xử lý</h3>
+                                    <p className="text-xs opacity-80">Phiên tranh chấp #{resolutionDraft.disputeId}</p>
+                                </div>
+                                <button onClick={() => setIsResolveModalOpen(false)} className="hover:bg-red-700 p-1 rounded-full"><X size={20} /></button>
+                            </div>
+
+                            <div className="p-6 space-y-4">
+                                {/* Lựa chọn trạng thái */}
+                                <div>
+                                    <label className="text-xs font-bold text-gray-500 uppercase mb-2 block">Hình thức xử lý</label>
+                                    <div className="grid grid-cols-2 gap-3">
+                                        <button
+                                            onClick={() => dispatch(updateDraft({ status: 'RESOLVED_REFUND' }))}
+                                            className={`py-3 rounded-xl border-2 text-sm font-bold transition-all ${resolutionDraft.status === 'RESOLVED_REFUND' ? 'border-red-600 bg-red-50 text-red-600' : 'border-gray-100 text-gray-400'}`}
+                                        >
+                                            Hoàn tiền
+                                        </button>
+                                        <button
+                                            onClick={() => dispatch(updateDraft({ status: 'RESOLVED_REJECT' }))}
+                                            className={`py-3 rounded-xl border-2 text-sm font-bold transition-all ${resolutionDraft.status === 'RESOLVED_REJECT' ? 'border-emerald-600 bg-emerald-50 text-emerald-600' : 'border-gray-100 text-gray-400'}`}
+                                        >
+                                            Bác bỏ khiếu nại
+                                        </button>
+                                    </div>
+                                </div>
+
+                                {/* Ghi chú - Lưu draft vào Redux mỗi khi gõ */}
+                                <div>
+                                    <label className="text-xs font-bold text-gray-500 uppercase mb-2 block">Lý do xử lý (Lưu vết Admin)</label>
+                                    <textarea
+                                        value={resolutionDraft.adminNote}
+                                        onChange={(e) => dispatch(updateDraft({ adminNote: e.target.value }))}
+                                        placeholder="Nhập lý do tại sao bạn đưa ra quyết định này..."
+                                        className="w-full h-32 p-3 bg-slate-50 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-red-500 outline-none transition-all"
+                                    />
+                                </div>
+
+                                <div className="flex gap-3 pt-2">
+                                    <button
+                                        onClick={() => setIsResolveModalOpen(false)}
+                                        className="flex-1 py-3 text-sm font-bold text-gray-500 hover:bg-gray-50 rounded-xl transition-all"
+                                    >
+                                        Để sau
+                                    </button>
+                                    <button
+                                        onClick={handleConfirmResolve}
+                                        className="flex-1 py-3 bg-slate-900 text-white rounded-xl text-sm font-bold hover:bg-black transition-all shadow-lg shadow-gray-200"
+                                    >
+                                        Xác nhận xử lý
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
+                {/* EMPTY STATE */}
+                {pageData?.content.length === 0 && !loading && (
+                    <div className="p-10 text-center text-gray-400 italic">Không có phiên nào ở mục này.</div>
+                )}
+
+                {/* PAGINATION CONTROLS */}
+                <div className="px-6 py-4 bg-slate-50 border-t border-gray-100 flex justify-between items-center">
+                    <p className="text-xs text-gray-500">
+                        Tổng số: <b>{pageData?.totalElements || 0}</b> bản ghi
+                    </p>
+                    <div className="flex items-center gap-4">
+                        <button
+                            disabled={pageData?.first || loading}
+                            onClick={() => handlePageChange(currentPage - 1)}
+                            className="p-2 border rounded-lg hover:bg-white disabled:opacity-30 transition-all"
+                        >
+                            <ChevronLeft size={16} />
+                        </button>
+                        <span className="text-sm font-bold text-purple-700">Trang {currentPage + 1} / {pageData?.totalPages || 1}</span>
+                        <button
+                            disabled={pageData?.last || loading}
+                            onClick={() => handlePageChange(currentPage + 1)}
+                            className="p-2 border rounded-lg hover:bg-white disabled:opacity-30 transition-all"
+                        >
+                            <ChevronRight size={16} />
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            {/* --- MODAL DETAIL (Giữ nguyên UI của ông, chỉ thay map data) --- */}
+            {selectedSession && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4">
+                    <div className="bg-white rounded-2xl w-full max-w-5xl max-h-[90vh] overflow-hidden shadow-2xl flex flex-col">
+                        {/* HEADER */}
+                        <div className="p-6 text-white flex justify-between items-center bg-gradient-to-r from-purple-800 to-indigo-900 shrink-0">
+                            <div>
+                                <h3 className="text-xl font-bold flex items-center gap-2">
+                                    <FileText size={20} /> Chi tiết hồ sơ phiên #{selectedSession.id}
+                                </h3>
+                                <p className="text-xs opacity-70 mt-1">Khởi tạo ngày: {new Date(selectedSession.createdAt).toLocaleString('vi-VN')}</p>
+                            </div>
+                            <button
+                                onClick={() => setSelectedSession(null)}
+                                className="hover:rotate-90 transition-all p-2 bg-white/10 rounded-full"
+                            >
+                                <X size={20} />
+                            </button>
+                        </div>
+
+                        <div className="flex-1 overflow-y-auto p-6 bg-slate-50">
+                            <div className="grid grid-cols-12 gap-6">
+
+                                {/* CỘT TRÁI: THÔNG TIN PHIÊN & BÀI (6/12) */}
+                                <div className="col-span-12 lg:col-span-7 space-y-6">
+                                    {/* Box 1: Câu hỏi & Giá */}
+                                    <div className="bg-white p-5 rounded-2xl border border-gray-100 shadow-sm">
+                                        <h4 className="text-sm font-bold text-gray-400 uppercase mb-4 flex items-center gap-2">
+                                            <Layers size={16} /> Nội dung tư vấn
+                                        </h4>
+                                        <div className="space-y-4">
+                                            {/* THÔNG TIN KHÁCH HÀNG (MỚI) */}
+                                            <div className="p-4 bg-purple-50/50 rounded-xl border border-purple-100 flex items-center gap-4">
+                                                <div className="w-12 h-12 rounded-full bg-purple-600 flex items-center justify-center text-white font-bold text-lg shadow-inner">
+                                                    {selectedSession.customer?.fullName?.charAt(0) || 'U'}
+                                                </div>
+                                                <div className="flex-1">
+                                                    <div className="flex items-center gap-2">
+                                                        <span className="text-xs font-bold text-gray-400 uppercase tracking-wider">Khách hàng:</span>
+                                                        <p className="text-sm font-black text-slate-800">{selectedSession.customer?.fullName || 'N/A'}</p>
+                                                    </div>
+                                                    <div className="flex items-center gap-3 mt-1">
+                                                        <div className="flex items-center gap-1 text-xs text-slate-600">
+                                                            <span className="font-semibold text-purple-600">NS:</span>
+                                                            {/* Giả định trường dob trong Customer Entity */}
+                                                            {selectedSession.customer?.birthDate ? new Date(selectedSession.customer?.birthDate).toLocaleDateString('vi-VN') : 'Chưa cập nhật'}
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+
+                                            {/* THÔNG TIN PHIÊN (GIỮ LẠI VÀ TINH CHỈNH) */}
+                                            <div className="grid grid-cols-2 gap-4">
+                                                <div className="flex flex-col gap-1">
+                                                    <span className="text-[10px] font-bold text-gray-400 uppercase">Chủ đề</span>
+                                                    <span className="text-sm font-bold text-purple-700 bg-purple-100 px-3 py-1 rounded-lg w-fit">
+                                                        {selectedSession.question?.topic?.name || 'Tình duyên'}
+                                                    </span>
+                                                </div>
+                                                <div className="flex flex-col gap-1 items-end">
+                                                    <span className="text-[10px] font-bold text-gray-400 uppercase">Phí dịch vụ</span>
+                                                    <span className="text-lg font-black text-orange-600 font-mono">
+                                                        {selectedSession.amount?.toLocaleString()}đ
+                                                    </span>
+                                                </div>
+                                            </div>
+
+                                            <div>
+                                                <p className="text-[10px] font-bold text-gray-400 uppercase mb-2">Câu hỏi của khách:</p>
+                                                <p className="text-sm font-medium text-slate-800 bg-slate-50 p-4 rounded-2xl border border-dashed border-slate-200 leading-relaxed relative">
+                                                    <span className="absolute -top-2 -left-1 text-3xl text-slate-200 font-serif">“</span>
+                                                    {selectedSession.question?.questionText || 'N/A'}
+                                                    <span className="absolute -bottom-5 -right-1 text-3xl text-slate-200 font-serif">”</span>
+                                                </p>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    {/* Box 2: Trải bài Tarot */}
+                                    <div className="bg-white p-5 rounded-2xl border border-gray-100 shadow-sm">
+                                        <h4 className="text-sm font-bold text-gray-400 uppercase mb-4 flex items-center gap-2">
+                                            <Star size={16} className="text-yellow-500" /> Các lá bài trong phiên
+                                        </h4>
+
+                                        <div className="grid grid-cols-1 gap-4">
+                                            {selectedSession.selectedCards?.map((card, idx) => (
+                                                <div
+                                                    key={card.cardId || idx}
+                                                    className="flex gap-4 p-4 border rounded-2xl bg-slate-50/50 hover:bg-white hover:shadow-md transition-all group"
+                                                >
+                                                    {/* Ảnh bài - Dùng imageUrl */}
+                                                    <div className="relative w-20 h-32 flex-shrink-0 shadow-lg rounded-lg overflow-hidden border-2 border-white group-hover:border-purple-200 transition-all">
+                                                        <img
+                                                            src={card.imageUrl}
+                                                            alt={card.nameVi}
+                                                            className={`w-full h-full object-cover ${card.reversed ? 'rotate-180' : ''}`}
+                                                        />
+                                                        {card.reversed && (
+                                                            <div className="absolute top-1 right-1 bg-red-500 text-[10px] text-white px-1.5 rounded-full font-bold uppercase shadow-sm">
+                                                                Ngược
+                                                            </div>
+                                                        )}
+                                                    </div>
+
+                                                    {/* Thông tin bài */}
+                                                    <div className="flex flex-col justify-center">
+                                                        <div className="flex items-center gap-2 mb-1">
+                                                            <span className="flex items-center justify-center w-6 h-6 rounded-full bg-purple-600 text-white text-[10px] font-bold">
+                                                                {card.cardNumber}
+                                                            </span>
+                                                            <p className="font-black text-slate-800 text-lg">{card.nameVi}</p>
+                                                        </div>
+
+                                                        <div className="space-y-1">
+                                                            <p className="text-sm text-gray-500 flex items-center gap-1">
+                                                                <span className={`w-2 h-2 rounded-full ${card.reversed ? 'bg-red-400' : 'bg-emerald-400'}`}></span>
+                                                                Trạng thái: <b className={card.reversed ? 'text-red-600' : 'text-emerald-600'}>
+                                                                    {card.reversed ? 'Lá bài ngược' : 'Lá bài xuôi'}
+                                                                </b>
+                                                            </p>
+                                                            <p className="text-xs text-gray-400 italic">ID bài: #{card.cardId}</p>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            ))}
+
+                                            {(!selectedSession.selectedCards || selectedSession.selectedCards.length === 0) && (
+                                                <div className="py-10 text-center border-2 border-dashed rounded-2xl text-gray-400 text-sm">
+                                                    Chưa có dữ liệu lá bài cho phiên này.
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* CỘT PHẢI: CHI TIẾT TRANH CHẤP & LUẬN GIẢI (5/12) */}
+                                <div className="col-span-12 lg:col-span-5 space-y-6">
+
+                                    {/* BOX 1: ĐƠN KHIẾU NẠI TỪ KHÁCH */}
+                                    <div className="bg-red-50/50 p-5 rounded-2xl border border-red-100 shadow-sm">
+                                        <h4 className="text-sm font-bold text-red-600 uppercase mb-4 flex items-center gap-2">
+                                            <AlertTriangle size={16} /> Đơn khiếu nại từ khách
+                                        </h4>
+
+                                        <div className="space-y-4">
+                                            <div className="bg-white p-4 rounded-xl border border-red-100 shadow-sm">
+                                                <p className="text-xs text-gray-500 mb-1 font-bold">Lý do khiếu nại:</p>
+                                                <p className="text-sm text-slate-700 italic leading-relaxed">
+                                                    {/* Giả sử lý do nằm trong object session hoặc dispute */}
+                                                    "{selectedSession.disputeReason || 'Nội dung khiếu nại đang được cập nhật...'}"
+                                                </p>
+                                            </div>
+
+                                            <div>
+                                                <p className="text-xs text-gray-500 mb-2 font-bold flex items-center gap-1">
+                                                    <ImageIcon size={14} /> Hình ảnh bằng chứng ({selectedSession.disputeEvidences?.length || 0})
+                                                </p>
+                                                <div className="grid grid-cols-3 gap-2">
+                                                    {selectedSession.disputeEvidences?.map((img: string | undefined, i: React.Key | null | undefined) => (
+                                                        <img key={i} src={img} className="w-full h-20 object-cover rounded-lg border border-gray-200 cursor-zoom-in hover:opacity-80 transition-all" />
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    {/* BOX 2: CHI TIẾT LUẬN GIẢI CỦA READER (MỚI THÊM) */}
+                                    <div className="bg-blue-50/50 p-5 rounded-2xl border border-blue-100 shadow-sm">
+                                        <h4 className="text-sm font-bold text-blue-600 uppercase mb-4 flex items-center gap-2">
+                                            <FileText size={16} /> Nội dung Reader đã trả lời
+                                        </h4>
+
+                                        {interpLoading ? (
+                                            <div className="flex justify-center py-10"><RefreshCcw className="animate-spin text-blue-600" /></div>
+                                        ) : selectedDetail ? (
+                                            <div className="space-y-4">
+                                                {/* THÔNG TIN READER (MỚI THÊM) */}
+                                                <div className="flex items-center gap-3 p-3 bg-white rounded-xl border border-blue-100 shadow-sm">
+                                                    
+                                                    <div>
+                                                        <p className="text-[10px] font-bold text-gray-400 uppercase leading-none mb-1">Người thực hiện:</p>
+                                                        <p className="text-sm font-black text-slate-800">
+                                                            {selectedDetail.reader?.fullName || 'Không rõ danh tính'}
+                                                            <span className="ml-2 text-[10px] font-normal text-blue-500 bg-blue-50 px-1.5 py-0.5 rounded">ID: #{selectedDetail.reader?.id}</span>
+                                                        </p>
+                                                    </div>
+                                                </div>
+
+                                                {/* Luận giải chi tiết từng lá (Giữ nguyên logic của ông) */}
+                                                <div className="space-y-3">
+                                                    {[1, 2, 3].map((num) => {
+                                                        const text = selectedDetail[`interpretation${num}` as keyof typeof selectedDetail];
+                                                        return text ? (
+                                                            <div key={num} className="bg-white/60 p-3 rounded-xl border border-blue-50">
+                                                                <p className="text-[10px] font-bold text-blue-400 uppercase mb-1">Luận giải lá #{num}:</p>
+                                                                <p className="text-sm text-slate-700 leading-relaxed">{text}</p>
+                                                            </div>
+                                                        ) : null;
+                                                    })}
+                                                </div>
+
+                                                {/* Lời khuyên tổng kết */}
+                                                <div className="bg-blue-600 p-4 rounded-xl text-white shadow-md shadow-blue-100">
+                                                    <p className="text-[10px] font-bold opacity-80 uppercase mb-1 text-blue-100">Lời khuyên & Kết luận:</p>
+                                                    <p className="text-sm font-medium leading-relaxed italic">
+                                                        "{selectedDetail.advice || 'Reader không để lại lời khuyên tổng kết.'}"
+                                                    </p>
+                                                </div>
+                                            </div>
+                                        ) : (
+                                            <div className="py-6 text-center border border-dashed border-blue-200 rounded-xl text-gray-400 text-xs italic">
+                                                Reader chưa gửi nội dung luận giải cho phiên này.
+                                            </div>
+                                        )}
+                                    </div>
+
+                                    {/* NÚT ACTION CỐ ĐỊNH Ở CUỐI CỘT PHẢI */}
+                                    <div className="pt-2">
+                                        <p className="text-[10px] text-gray-400 mb-3 text-center italic">
+                                            * Hãy đối chiếu nội dung bài và luận giải trước khi quyết định
+                                        </p>
+                                        {currentTab === 'dispute' && (
+                                            <button
+                                                onClick={() => handleOpenResolve(selectedSession)}
+                                                className="w-full py-4 bg-slate-900 text-white rounded-2xl font-bold shadow-xl hover:bg-black transition-all flex justify-center items-center gap-2"
+                                            >
+                                                <CheckCircle2 size={18} /> Đưa ra quyết định cuối cùng
+                                            </button>
+                                        )}
+                                    </div>
+                                </div>
+
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+        </div>
+    );
 }

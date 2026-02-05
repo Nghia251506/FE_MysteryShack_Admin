@@ -3,10 +3,14 @@ import { User } from "../../types/user";
 import { UserService } from "../../services/userService";
 
 interface UserState {
-  users: User[]; // Danh sách tất cả reader cho Admin
-  selectedUser: User | null; // Chi tiết 1 user khi cần xem/sửa
+  users: User[];
+  selectedUser: User | null;
   loading: boolean;
   error: string | null;
+  currentPage: number;
+  pageSize: number;
+  totalElements: number;
+  totalPages: number;
 }
 
 const initialState: UserState = {
@@ -14,38 +18,71 @@ const initialState: UserState = {
   selectedUser: null,
   loading: false,
   error: null,
+  currentPage: 0,
+  pageSize: 10,
+  totalElements: 0,
+  totalPages: 0,
 };
 
-// Thunk để lấy danh sách Reader
+// --- THUNKS ---
+
+export const fetchAllCustomers = createAsyncThunk(
+  "users/fetchAllCustomers",
+  async (params: any, { rejectWithValue }) => {
+    try {
+      // params truyền từ component vào: { keyword: 'abc', page: 0, size: 10 }
+      return await UserService.getAllUsers(params);
+    } catch (error: any) {
+      return rejectWithValue(error.response?.data?.message || "Lỗi lấy danh sách");
+    }
+  }
+);
+
 export const fetchAllReaders = createAsyncThunk(
   "users/fetchAllReaders",
   async (_, { rejectWithValue }) => {
     try {
-      const data = await UserService.getAllReader();
-      console.log(data);
-      return data; // Lưu ý: Nếu API trả về mảng, data sẽ là User[]
+      return await UserService.getAllReader();
     } catch (error: any) {
-      return rejectWithValue(
-        error.response?.data?.message || "Không thể lấy danh sách người dùng",
-      );
+      return rejectWithValue(error.response?.data?.message || "Không thể lấy danh sách reader");
     }
-  },
+  }
 );
 
-// Thunk để lấy chi tiết 1 User
-export const fetchUserById = createAsyncThunk(
-  "users/fetchUserById",
+export const fetchCustomerByIdAdmin = createAsyncThunk(
+  "users/fetchCustomerByIdAdmin",
   async (id: number, { rejectWithValue }) => {
     try {
-      const data = await UserService.getUserById(id);
-      return data;
+      return await UserService.getCustomerByIdAdmin(id);
     } catch (error: any) {
-      return rejectWithValue(
-        error.response?.data?.message || "Không thể lấy thông tin người dùng",
-      );
+      return rejectWithValue(error.response?.data?.message || "Lỗi lấy chi tiết người dùng");
     }
-  },
+  }
 );
+
+export const toggleUserStatus = createAsyncThunk(
+  "users/toggleUserStatus",
+  async (id: number, { rejectWithValue }) => {
+    try {
+      return await UserService.toggleStatus(id);
+    } catch (error: any) {
+      return rejectWithValue(error.response?.data?.message || "Lỗi khi thay đổi trạng thái");
+    }
+  }
+);
+
+export const updateUserInfo = createAsyncThunk(
+  "users/updateUserInfo",
+  async ({ id, data }: { id: number; data: Partial<User> }, { rejectWithValue }) => {
+    try {
+      return await UserService.updateUser(id, data);
+    } catch (error: any) {
+      return rejectWithValue(error.response?.data?.message || "Cập nhật thất bại");
+    }
+  }
+);
+
+// --- SLICE ---
 
 const userSlice = createSlice({
   name: "users",
@@ -57,64 +94,85 @@ const userSlice = createSlice({
   },
   extraReducers: (builder) => {
     builder
-      // Xử lý fetchAllReaders
-      .addCase(fetchAllReaders.pending, (state) => {
-        state.loading = true;
-        state.error = null;
-      })
-      .addCase(
-        fetchAllReaders.fulfilled,
-        (state, action: PayloadAction<any[]>) => {
-          state.loading = false;
-          state.users = action.payload.map((item: any) => ({
+      // 1. PHẢI ĐỂ CÁC .addCase LÊN ĐẦU
+      .addCase(fetchAllCustomers.fulfilled, (state, action: PayloadAction<any>) => {
+        state.loading = false;
+
+        // Lấy content từ Object phân trang (Swagger image_969c5f.png)
+        const { content, totalElements, totalPages, number } = action.payload;
+
+        // Map dữ liệu cẩn thận để khớp với Interface
+        state.users = content.map((item: any) => {
+          // Logic xác định trạng thái ưu tiên: 
+          // 1. Nếu bị blocked -> Locked
+          // 2. Nếu chưa verified -> Inactive
+          // 3. Nếu đang active -> Active
+          // 4. Các trường hợp còn lại -> Offline hoặc Pending
+          let statusText = "Active";
+          if (item.blocked) {
+            statusText = "Locked";
+          } else if (!item.verified) {
+            statusText = "Unverified";
+          } else if (!item.active) {
+            statusText = "Inactive";
+          }
+
+          return {
+            ...item,
             id: item.id.toString(),
-            fullName: item.fullName || "N/A",
-            email: item.email || "N/A",
-            account: item.username, // Khớp username của BE
-            phone: item.phone || "N/A",
-            dob: item.birthDate ? item.birthDate.split("T")[0] : "N/A", // Cắt lấy ngày yyyy-MM-dd
-            joinDate: item.createdAt ? item.createdAt.split("T")[0] : "N/A",
-            address: item.bio || "Chưa cập nhật",
-            elo: item.eloScore || 0,
-            rating: item.reputation || 0,
-            avatar:
-              item.profilePicture ||
-              `https://ui-avatars.com/api/?name=${item.fullName}`,
-            // Logic Status: Nếu bị Block thì Locked, nếu không Active thì Offline/Pending...
-            status: item.isBlocked
-              ? "Locked"
-              : item.active
-                ? "Active"
-                : "Offline",
+            status: statusText, // Trạng thái tính toán từ bộ cờ của BE
+            // Map thêm các trường nếu cần hiển thị
+            isBusy: item.busy || false,
+          };
+        });
 
-            // Các trường FE cần nhưng BE chưa có thì để mặc định để không bị lỗi undefined
-            specialty: [],
-            completedSessions: 0,
-            totalPurchases: 0,
-            acceptanceRate: 100,
-          }));
-        },
-      )
-      .addCase(fetchAllReaders.rejected, (state, action) => {
+        state.totalElements = totalElements;
+        state.totalPages = totalPages;
+        state.currentPage = number;
+      })
+      .addCase(fetchAllReaders.fulfilled, (state, action: PayloadAction<any>) => {
         state.loading = false;
-        state.error = action.payload as string;
+        const rawData = Array.isArray(action.payload) ? action.payload : (action.payload?.data || []);
+
+        state.users = rawData.map((item: any) => ({
+          ...item,
+          id: item.id,
+          account: item.username,
+          address: item.bio || "Chưa cập nhật",
+          status: item.isBlocked ? "Locked" : (item.active ? "Active" : "Offline"),
+          avatar: item.profilePicture || `https://ui-avatars.com/api/?name=${item.fullName}`,
+        })) as unknown as User[];
+      })
+      .addCase(fetchCustomerByIdAdmin.fulfilled, (state, action: PayloadAction<User>) => {
+        state.loading = false;
+        state.selectedUser = action.payload;
+      })
+      .addCase(toggleUserStatus.fulfilled, (state, action: PayloadAction<any>) => {
+        const updatedUser = action.payload;
+        const index = state.users.findIndex((u) => u.id === updatedUser.id);
+        if (index !== -1) {
+          const user = state.users[index] as any;
+          user.active = updatedUser.active;
+          user.isBlocked = updatedUser.isBlocked;
+          user.status = updatedUser.isBlocked ? "Locked" : (updatedUser.active ? "Active" : "Offline");
+        }
       })
 
-      // Xử lý fetchUserById
-      .addCase(fetchUserById.pending, (state) => {
-        state.loading = true;
-      })
-      .addCase(
-        fetchUserById.fulfilled,
-        (state, action: PayloadAction<User>) => {
+      // 2. CÁC .addMatcher PHẢI ĐỂ XUỐNG CUỐI CÙNG
+      .addMatcher(
+        (action) => action.type.endsWith("/pending"),
+        (state) => {
+          state.loading = true;
+          state.error = null;
+        }
+      )
+      .addMatcher(
+        (action) => action.type.endsWith("/rejected"),
+        (state, action: any) => {
           state.loading = false;
-          state.selectedUser = action.payload;
-        },
-      )
-      .addCase(fetchUserById.rejected, (state, action) => {
-        state.loading = false;
-        state.error = action.payload as string;
-      });
+          state.error = action.payload || "Đã xảy ra lỗi";
+        }
+      );
   },
 });
 

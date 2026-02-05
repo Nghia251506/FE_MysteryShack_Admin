@@ -4,8 +4,14 @@ import { Client } from '@stomp/stompjs';
 // Hàm khởi tạo socket
 export const createSocketClient = (onMessageReceived: (payload: any) => void) => {
   
-  // 1. Tự động nhận diện HTTP/HTTPS để tránh lỗi Security trên Vercel
-  const socketUrl = `${(import.meta as any).env.VITE_API_URL}/ws`; 
+ // Lấy URL từ Env, xóa bỏ http:// hoặc https:// nếu có
+const rawUrl = (import.meta as any).env.VITE_API_URL || '';
+const cleanUrl = rawUrl.replace(/^https?:\/\//, '');
+
+// Ép dùng protocol hiện tại của trình duyệt (Vercel là https thì nó sẽ là https)
+const protocol = window.location.protocol === 'https:' ? 'https' : 'http';
+
+const socketUrl = `${protocol}://${cleanUrl}/ws`;
   
   const client = new Client({
     // Cấu hình dùng SockJS (vì Spring Boot thường dùng thằng này)

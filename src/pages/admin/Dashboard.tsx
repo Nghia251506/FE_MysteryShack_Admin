@@ -52,7 +52,7 @@ export default function Dashboard() {
     dispatch(fetchDashboardData());
 
     // 2. WebSocket Real-time
-    const socket = new SockJS('http://localhost:8080/ws-dashboard');
+    const socket = new SockJS(`${import.meta.env.VITE_API_URL}/ws-dashboard`);
     const stompClient = new Client({
       webSocketFactory: () => socket,
       onConnect: () => {

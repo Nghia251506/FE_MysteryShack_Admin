@@ -18,7 +18,7 @@ export default defineConfig({
         // ⚠️ LƯU Ý: Thay 'http://localhost:8080' bằng địa chỉ Backend thật của bạn
         // Nếu Backend chạy port 3000 thì sửa thành 'http://localhost:3000'
         // Nếu Backend chạy port 5000 thì sửa thành 'http://localhost:5000'
-        target: (import.meta as any).env.VITE_API_URL, 
+        target: process.env.VITE_API_URL, 
         changeOrigin: true,
         secure: false,
       },

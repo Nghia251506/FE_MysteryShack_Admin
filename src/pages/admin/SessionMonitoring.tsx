@@ -115,7 +115,7 @@ export default function SessionMonitoring() {
             {/* TABS */}
             <div className="flex gap-2 mb-6 border-b border-gray-200">
                 {[
-                    { id: 'live', label: 'Đang diễn ra', icon: PlayCircle },
+                    { id: 'processing', label: 'Đang diễn ra', icon: PlayCircle },
                     { id: 'completed', label: 'Đã hoàn thành', icon: CheckCircle2 },
                     { id: 'dispute', label: 'Tranh chấp', icon: AlertOctagon }
                 ].map(tab => (

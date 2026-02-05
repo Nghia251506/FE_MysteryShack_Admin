@@ -24,4 +24,9 @@ export default defineConfig({
       },
     },
   },
+
+  define: {
+    // Thay thế biến global bằng window để các thư viện cũ không bị crash
+    global: 'window',
+  },
 });
